@@ -9,6 +9,8 @@ APP_NAME="${APP_NAME:-CodexAgentBar}"
 BUNDLE_ID="${BUNDLE_ID:-com.lonewolfyx.CodexAgentBar}"
 CONFIGURATION="${CONFIGURATION:-release}"
 DMG_VOLUME_NAME="${DMG_VOLUME_NAME:-$APP_NAME}"
+SIGN_APP="${SIGN_APP:-1}"
+CODE_SIGN_IDENTITY="${CODE_SIGN_IDENTITY:--}"
 
 ENV_VERSION_WAS_SET=0
 ENV_BUILD_NUMBER_WAS_SET=0
@@ -62,7 +64,7 @@ Options:
 
 Environment overrides:
   APP_NAME, BUNDLE_ID, VERSION, BUILD_NUMBER, CONFIGURATION, DIST_DIR,
-  DMG_VOLUME_NAME, VERSION_ENV_FILE
+  DMG_VOLUME_NAME, VERSION_ENV_FILE, SIGN_APP, CODE_SIGN_IDENTITY
 
 Version file:
   $VERSION_ENV_FILE
@@ -157,6 +159,7 @@ require_command base64
 require_command Rez
 require_command DeRez
 require_command SetFile
+require_command codesign
 
 create_title_icon() {
     cat > "$TITLE_ICON_SWIFT" <<'SWIFT'
@@ -197,6 +200,22 @@ try png.write(to: URL(fileURLWithPath: output))
 SWIFT
 
     swift "$TITLE_ICON_SWIFT" "$TITLE_ICON_WORK" "$APP_NAME"
+}
+
+sign_app_bundle() {
+    if [ "$SIGN_APP" = "0" ]; then
+        echo "Skipping app bundle signing because SIGN_APP=0."
+        return
+    fi
+
+    if [ "$CODE_SIGN_IDENTITY" = "-" ]; then
+        echo "Signing app bundle with ad-hoc identity..."
+    else
+        echo "Signing app bundle with identity: $CODE_SIGN_IDENTITY"
+    fi
+
+    codesign --force --sign "$CODE_SIGN_IDENTITY" "$APP_BUNDLE"
+    codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE"
 }
 
 write_dmg_layout() {
@@ -291,6 +310,8 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<EOF
 </dict>
 </plist>
 EOF
+
+sign_app_bundle
 
 echo "Preparing DMG staging directory..."
 cp -R "$APP_BUNDLE" "$STAGING_DIR/"
