@@ -1,0 +1,75 @@
+name: Release
+
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Resolve release metadata
+        id: release
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Build DMG
+        shell: bash
+        run: ./scripts/build-dmg.sh --version "${{ steps.release.outputs.version }}"
+
+      - name: Locate DMG
+        id: dmg
+        shell: bash
+        run: |
+          shopt -s nullglob
+          dmgs=(dist/*.dmg)
+
+          if [ "${#dmgs[@]}" -ne 1 ]; then
+            printf 'Expected exactly one DMG in dist, found %s:\n' "${#dmgs[@]}" >&2
+            printf ' - %s\n' "${dmgs[@]:-<none>}" >&2
+            exit 1
+          fi
+
+          if [ ! -s "${dmgs[0]}" ]; then
+            echo "DMG is empty: ${dmgs[0]}" >&2
+            exit 1
+          fi
+
+          dmg_path="${dmgs[0]}"
+          dmg_name="$(basename "$dmg_path")"
+
+          echo "path=$dmg_path" >> "$GITHUB_OUTPUT"
+          echo "name=$dmg_name" >> "$GITHUB_OUTPUT"
+          ls -lh "$dmg_path"
+
+      - name: Create GitHub Release
+        run: npx --yes genereleaselog@latest --output false --assets "${{ steps.dmg.outputs.path }}"
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
+      - name: Verify release asset
+        shell: bash
+        run: |
+          gh release view "${{ steps.release.outputs.tag }}" \
+            --json assets \
+            --jq '.assets[].name' \
+            | grep -Fx "${{ steps.dmg.outputs.name }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
