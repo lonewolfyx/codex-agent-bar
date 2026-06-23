@@ -5,8 +5,8 @@ set -eu
 REPO_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 VERSION_ENV_FILE="${VERSION_ENV_FILE:-$REPO_ROOT/version.env}"
 
-APP_NAME="${APP_NAME:-CodexAgentBar}"
-BUNDLE_ID="${BUNDLE_ID:-com.lonewolfyx.CodexAgentBar}"
+APP_NAME="${APP_NAME:-AgentBar}"
+BUNDLE_ID="${BUNDLE_ID:-com.lonewolfyx.AgentBar}"
 CONFIGURATION="${CONFIGURATION:-release}"
 DMG_VOLUME_NAME="${DMG_VOLUME_NAME:-$APP_NAME}"
 SIGN_APP="${SIGN_APP:-1}"
@@ -125,7 +125,7 @@ if [ "$OUTPUT_WAS_SET" -eq 0 ]; then
     DMG_PATH="$DIST_DIR/$APP_NAME-$VERSION.dmg"
 fi
 
-WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/codex-agent-bar-dmg.XXXXXX")"
+WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/AgentBar-dmg.XXXXXX")"
 APP_BUNDLE="$WORK_DIR/$APP_NAME.app"
 STAGING_DIR="$WORK_DIR/dmg-staging"
 TEMP_DMG="$WORK_DIR/$APP_NAME-temp.dmg"

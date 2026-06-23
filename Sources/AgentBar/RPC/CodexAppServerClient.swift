@@ -6,7 +6,7 @@ final class CodexAppServerClient {
 
     var notificationHandler: ((String, JSONDictionary?) -> Void)?
 
-    private let queue = DispatchQueue(label: "codex-agent-bar.rpc")
+    private let queue = DispatchQueue(label: "AgentBar.rpc")
     private var process: Process?
     private var inputPipe: Pipe?
     private var outputPipe: Pipe?
@@ -352,7 +352,7 @@ final class CodexAppServerClient {
     }
 
     private func log(_ message: String) {
-        print("[CodexAgentBar] \(message)")
+        print("[AgentBar] \(message)")
     }
 }
 

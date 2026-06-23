@@ -3,17 +3,17 @@
 import PackageDescription
 
 let package = Package(
-    name: "CodexAgentBar",
+    name: "AgentBar",
     platforms: [
         .macOS(.v13),
     ],
     products: [
-        .executable(name: "CodexAgentBar", targets: ["CodexAgentBar"]),
+        .executable(name: "AgentBar", targets: ["AgentBar"]),
     ],
     targets: [
         .executableTarget(
-            name: "CodexAgentBar",
-            path: "Sources/CodexAgentBar"
+            name: "AgentBar",
+            path: "Sources/AgentBar"
         ),
     ]
 )
