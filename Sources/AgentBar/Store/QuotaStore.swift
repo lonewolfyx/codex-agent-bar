@@ -148,6 +148,6 @@ final class QuotaStore: ObservableObject {
     private func apply(error: Error) {
         statusMessage = error.localizedDescription
         isLoading = false
-        print("[CodexAgentBar] Quota refresh failed: \(error.localizedDescription)")
+        print("[AgentBar] Quota refresh failed: \(error.localizedDescription)")
     }
 }

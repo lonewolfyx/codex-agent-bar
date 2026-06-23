@@ -180,7 +180,7 @@ struct CodexRateLimitService {
         if
             let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]),
             let text = String(data: data, encoding: .utf8) {
-            print("[CodexAgentBar] Parsed quota data:\n\(text)")
+            print("[AgentBar] Parsed quota data:\n\(text)")
         }
     }
 
