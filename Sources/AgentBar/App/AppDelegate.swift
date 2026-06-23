@@ -52,8 +52,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let popover = NSPopover()
         popover.behavior = .transient
         popover.delegate = self
-        popover.contentSize = NSSize(width: 320, height: 248)
-        popover.contentViewController = NSHostingController(
+        popover.contentSize = NSSize(width: 320, height: 280)
+        popover.contentViewController = VisualEffectHostingController(
             rootView: QuotaPopoverView(
                 store: store,
                 onQuit: {
@@ -165,5 +165,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             : window.convertPoint(fromScreen: NSEvent.mouseLocation)
         let pointInView = view.convert(pointInWindow, from: nil)
         return view.bounds.contains(pointInView)
+    }
+}
+
+private final class VisualEffectHostingController<Content: View>: NSViewController {
+    private let rootView: Content
+    private var hostingController: NSHostingController<Content>?
+
+    init(rootView: Content) {
+        self.rootView = rootView
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    override func loadView() {
+        let effectView = NSVisualEffectView()
+        effectView.material = .menu
+        effectView.blendingMode = .behindWindow
+        effectView.state = .active
+        view = effectView
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        let hostingController = NSHostingController(rootView: rootView)
+        hostingController.view.wantsLayer = true
+        hostingController.view.layer?.backgroundColor = NSColor.clear.cgColor
+        hostingController.view.translatesAutoresizingMaskIntoConstraints = false
+
+        addChild(hostingController)
+        view.addSubview(hostingController.view)
+        NSLayoutConstraint.activate([
+            hostingController.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            hostingController.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            hostingController.view.topAnchor.constraint(equalTo: view.topAnchor),
+            hostingController.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+
+        self.hostingController = hostingController
     }
 }

@@ -5,19 +5,18 @@ struct QuotaPopoverView: View {
     let onQuit: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            header
-
+        VStack(spacing: 12) {
             if let snapshot = store.snapshot {
-                VStack(spacing: 12) {
+                VStack(spacing: 18) {
                     QuotaRow(window: snapshot.primary)
+                    Divider()
                     QuotaRow(window: snapshot.secondary)
                 }
             } else {
                 Text(store.statusMessage)
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(QuotaPopoverColors.mutedText)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             }
 
             Divider()
@@ -28,55 +27,27 @@ struct QuotaPopoverView: View {
                 Spacer()
 
                 Button("Quit", action: onQuit)
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(QuotaPopoverColors.primaryText)
             }
-            .buttonStyle(.borderless)
-            .font(.caption)
+            .font(.system(size: 12, weight: .medium))
         }
-        .padding(18)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 16)
         .frame(width: 320)
-        .background(Color(nsColor: .windowBackgroundColor))
-    }
-
-    private var header: some View {
-        HStack(alignment: .center, spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(headerColor.opacity(0.14))
-                Image(systemName: "terminal.fill")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(headerColor)
-            }
-            .frame(width: 42, height: 42)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Codex Quota")
-                    .font(.system(size: 17, weight: .semibold))
-                Text(store.statusMessage)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-        }
+        .frame(height: 280)
+        .background(Color.clear)
     }
 
     private var footerText: some View {
         Group {
             if let lastUpdated = store.snapshot?.lastUpdated {
-                Text("Updated \(lastUpdated.formatted(date: .omitted, time: .shortened))")
+                Text("Last refresh \(lastUpdated.formatted(.dateTime.hour().minute().locale(Locale(identifier: "zh_CN"))))")
             } else {
-                Text(store.isLoading ? "Loading..." : "Not updated")
+                Text(store.isLoading ? "loading..." : "Not refreshed")
             }
         }
-        .font(.caption)
-        .foregroundStyle(.secondary)
-    }
-
-    private var headerColor: Color {
-        if store.snapshot == nil {
-            return store.isLoading ? QuotaPalette.warningColor : .red
-        }
-
-        return .green
+        .foregroundStyle(QuotaPopoverColors.mutedText)
     }
 }
 
@@ -84,47 +55,197 @@ struct QuotaRow: View {
     let window: QuotaWindow
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack {
-                Text(window.title)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .center) {
+                Text(displayTitle)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(QuotaPopoverColors.titleText)
+
+                Spacer(minLength: 12)
+
+                Label(resetText, systemImage: "clock")
                     .font(.system(size: 13, weight: .medium))
-                Spacer()
-                Text("\(Int(window.remainingPercent.rounded()))% left")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(QuotaPopoverColors.mutedText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+            }
+
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text("\(displayPercent)")
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(QuotaPopoverColors.primaryText)
                     .monospacedDigit()
-                    .foregroundStyle(color)
+                Text("%")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(QuotaPopoverColors.titleText)
             }
 
-            ProgressView(value: window.remainingPercent, total: 100)
-                .progressViewStyle(.linear)
-                .tint(color)
+            QuotaScaleLabels()
 
-            HStack {
-                Text("Used \(Int(window.usedPercent.rounded()))%")
-                Spacer()
-                Text(resetText)
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
+            QuotaScaleTrack(value: window.usedPercent, color: progressColor)
+        }
+    }
+
+    private var displayTitle: String {
+        switch window.windowDurationMins {
+        case 300:
+            return "当前会话"
+        case 10080:
+            return "近 1 周"
+        default:
+            return window.title
+        }
+    }
+
+    private var displayPercent: Int {
+        Int(window.usedPercent.rounded())
+    }
+
+    private var progressColor: Color {
+        switch window.remainingPercent {
+        case ...20:
+            return Color(nsColor: .systemRed)
+        case ...50:
+            return QuotaPalette.warningColor
+        default:
+            return Color(nsColor: .systemGreen)
         }
     }
 
     private var resetText: String {
         guard let resetsAt = window.resetsAt else {
-            return "Reset time unavailable"
+            return "刷新时间不可用"
         }
 
-        return "Resets \(resetsAt.formatted(date: .abbreviated, time: .shortened))"
+        if window.windowDurationMins == 10080 {
+            return "\(Self.dateFormatter.string(from: resetsAt))刷新"
+        }
+
+        let minutesUntilReset = Int(ceil(max(0, resetsAt.timeIntervalSinceNow) / 60))
+        guard minutesUntilReset > 0 else {
+            return "即将刷新"
+        }
+
+        let days = minutesUntilReset / 1_440
+        let hours = (minutesUntilReset % 1_440) / 60
+        let minutes = minutesUntilReset % 60
+
+        if days > 0 {
+            return "\(days)天\(Self.twoDigit(hours))时\(Self.twoDigit(minutes))分钟后刷新"
+        }
+
+        return "\(Self.twoDigit(hours))时\(Self.twoDigit(minutes))分钟后刷新"
     }
 
-    private var color: Color {
-        switch window.remainingPercent {
-        case ...20:
-            return .red
-        case ...50:
-            return QuotaPalette.warningColor
-        default:
-            return .green
-        }
+    private static func twoDigit(_ value: Int) -> String {
+        String(format: "%02d", value)
     }
+
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        return formatter
+    }()
+}
+
+private struct QuotaScaleLabels: View {
+    private let ticks: [ScaleTick] = [
+        ScaleTick(value: 0, label: "0%"),
+        ScaleTick(value: 0.5, label: "50%"),
+        ScaleTick(value: 0.9, label: "90%"),
+    ]
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .topLeading) {
+                ForEach(ticks) { tick in
+                    Text(tick.label)
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(tick.value == 0.9 ? QuotaPopoverColors.mutedText : QuotaPopoverColors.scaleText)
+                        .monospacedDigit()
+                        .position(x: xPosition(for: tick.value, in: proxy.size.width), y: 8)
+                }
+            }
+        }
+        .frame(height: 16)
+    }
+
+    private func xPosition(for value: Double, in width: CGFloat) -> CGFloat {
+        let edgeInset: CGFloat = 16
+        return min(max(width * CGFloat(value), edgeInset), max(edgeInset, width - edgeInset))
+    }
+}
+
+private struct QuotaScaleTrack: View {
+    let value: Double
+    let color: Color
+
+    private let markerValue = 0.9
+
+    var body: some View {
+        Canvas { context, size in
+            let centerY = size.height / 2
+            let tickWidth: CGFloat = 2
+            let tickHeight: CGFloat = 7
+            let tickSpacing: CGFloat = 5
+            let corner = CGSize(width: 1, height: 1)
+            let clampedValue = min(max(value, 0), 100)
+            let activeWidth = size.width * CGFloat(clampedValue / 100)
+
+            var x: CGFloat = 0
+            while x <= size.width {
+                let tickRect = CGRect(
+                    x: x,
+                    y: centerY - tickHeight / 2,
+                    width: tickWidth,
+                    height: tickHeight
+                )
+                context.fill(
+                    Path(roundedRect: tickRect, cornerSize: corner),
+                    with: .color(QuotaPopoverColors.track)
+                )
+                x += tickSpacing
+            }
+
+            if activeWidth > 0 {
+                let activeRect = CGRect(
+                    x: 0,
+                    y: centerY - tickHeight / 2,
+                    width: activeWidth,
+                    height: tickHeight
+                )
+                context.fill(
+                    Path(roundedRect: activeRect, cornerSize: CGSize(width: tickHeight / 2, height: tickHeight / 2)),
+                    with: .color(color)
+                )
+            }
+
+            let markerX = size.width * CGFloat(markerValue)
+            let markerRect = CGRect(x: markerX - 1.5, y: centerY - 8, width: 3, height: 16)
+            context.fill(
+                Path(roundedRect: markerRect, cornerSize: CGSize(width: 1.5, height: 1.5)),
+                with: .color(QuotaPopoverColors.marker)
+            )
+        }
+        .frame(height: 18)
+    }
+}
+
+private struct ScaleTick: Identifiable {
+    let value: Double
+    let label: String
+
+    var id: Double {
+        value
+    }
+}
+
+private enum QuotaPopoverColors {
+    static let primaryText = Color(nsColor: .labelColor)
+    static let titleText = Color(nsColor: .labelColor)
+    static let mutedText = Color(nsColor: .secondaryLabelColor)
+    static let scaleText = Color(nsColor: .tertiaryLabelColor)
+    static let track = Color(nsColor: .tertiaryLabelColor).opacity(0.26)
+    static let marker = Color(nsColor: .secondaryLabelColor)
 }
