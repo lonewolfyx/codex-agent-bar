@@ -57,9 +57,11 @@ jobs:
 
           dmg_path="${dmgs[0]}"
           dmg_name="$(basename "$dmg_path")"
+          app_name="${dmg_name%-${{ steps.release.outputs.version }}.dmg}"
 
           echo "path=$dmg_path" >> "$GITHUB_OUTPUT"
           echo "name=$dmg_name" >> "$GITHUB_OUTPUT"
+          echo "app_name=$app_name" >> "$GITHUB_OUTPUT"
           ls -lh "$dmg_path"
 
       - name: Verify DMG contents
@@ -79,9 +81,11 @@ jobs:
           hdiutil verify "$dmg_path"
           hdiutil attach -readonly -nobrowse -mountpoint "$mount_dir" "$dmg_path" >/dev/null
 
-          app_path="$mount_dir/AgentBar.app"
+          app_path="$mount_dir/${{ steps.dmg.outputs.app_name }}.app"
           if [ ! -d "$app_path" ]; then
             echo "Expected app bundle not found: $app_path" >&2
+            echo "Mounted DMG contents:" >&2
+            find "$mount_dir" -maxdepth 1 -mindepth 1 -print >&2
             exit 1
           fi
 
