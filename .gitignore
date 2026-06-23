@@ -2,6 +2,7 @@
 xcuserdata/
 .swiftpm/xcode/xcshareddata/
 *.env
+!version.env
 *.local
 
 # Build products

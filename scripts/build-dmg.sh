@@ -2,13 +2,37 @@
 
 set -eu
 
+REPO_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+VERSION_ENV_FILE="${VERSION_ENV_FILE:-$REPO_ROOT/version.env}"
+
 APP_NAME="${APP_NAME:-CodexAgentBar}"
 BUNDLE_ID="${BUNDLE_ID:-com.lonewolfyx.CodexAgentBar}"
-VERSION="${VERSION:-1.0.0}"
-BUILD_NUMBER="${BUILD_NUMBER:-1}"
 CONFIGURATION="${CONFIGURATION:-release}"
 DMG_VOLUME_NAME="${DMG_VOLUME_NAME:-$APP_NAME}"
-REPO_ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+
+ENV_VERSION_WAS_SET=0
+ENV_BUILD_NUMBER_WAS_SET=0
+if [ "${VERSION+x}" = x ]; then
+    ENV_VERSION="$VERSION"
+    ENV_VERSION_WAS_SET=1
+fi
+if [ "${BUILD_NUMBER+x}" = x ]; then
+    ENV_BUILD_NUMBER="$BUILD_NUMBER"
+    ENV_BUILD_NUMBER_WAS_SET=1
+fi
+
+VERSION="1.0.0"
+BUILD_NUMBER="1"
+if [ -f "$VERSION_ENV_FILE" ]; then
+    . "$VERSION_ENV_FILE"
+fi
+if [ "$ENV_VERSION_WAS_SET" -eq 1 ]; then
+    VERSION="$ENV_VERSION"
+fi
+if [ "$ENV_BUILD_NUMBER_WAS_SET" -eq 1 ]; then
+    BUILD_NUMBER="$ENV_BUILD_NUMBER"
+fi
+
 BUILD_DIR="$REPO_ROOT/.build/$CONFIGURATION"
 DIST_DIR="${DIST_DIR:-$REPO_ROOT/dist}"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
@@ -20,8 +44,14 @@ ICON_SOURCE="$ASSETS_DIR/app-icon.png"
 MENU_BAR_ICON_SOURCE="$ASSETS_DIR/app-icon-light.png"
 ICONSET_DIR="$DIST_DIR/AppIcon.iconset"
 APP_ICON="$DIST_DIR/AppIcon.icns"
+OUTPUT_WAS_SET=0
 
 usage() {
+    DEFAULT_DMG_PATH="$DMG_PATH"
+    if [ "$OUTPUT_WAS_SET" -eq 0 ]; then
+        DEFAULT_DMG_PATH="$DIST_DIR/$APP_NAME-$VERSION.dmg"
+    fi
+
     cat <<EOF
 Usage: $(basename "$0") [options]
 
@@ -31,12 +61,15 @@ Options:
   -n, --name NAME          App name. Default: $APP_NAME
   -b, --bundle-id ID      Bundle identifier. Default: $BUNDLE_ID
   -v, --version VERSION   App version and DMG suffix. Default: $VERSION
-  -o, --output PATH       DMG output path. Default: $DMG_PATH
+  -o, --output PATH       DMG output path. Default: $DEFAULT_DMG_PATH
   -h, --help              Show this help.
 
 Environment overrides:
   APP_NAME, BUNDLE_ID, VERSION, BUILD_NUMBER, CONFIGURATION, DIST_DIR,
-  DMG_VOLUME_NAME
+  DMG_VOLUME_NAME, VERSION_ENV_FILE
+
+Version file:
+  $VERSION_ENV_FILE
 EOF
 }
 
@@ -72,6 +105,7 @@ while [ "$#" -gt 0 ]; do
                 exit 1
             fi
             DMG_PATH="$2"
+            OUTPUT_WAS_SET=1
             shift 2
             ;;
         -h|--help)
@@ -90,6 +124,9 @@ BUILD_DIR="$REPO_ROOT/.build/$CONFIGURATION"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 TEMP_DMG="$DIST_DIR/$APP_NAME-temp.dmg"
 EXECUTABLE="$BUILD_DIR/$APP_NAME"
+if [ "$OUTPUT_WAS_SET" -eq 0 ]; then
+    DMG_PATH="$DIST_DIR/$APP_NAME-$VERSION.dmg"
+fi
 
 require_command() {
     if ! command -v "$1" >/dev/null 2>&1; then
@@ -147,6 +184,9 @@ iconutil -c icns "$ICONSET_DIR" -o "$APP_ICON"
 cp "$APP_ICON" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
 cp "$ICON_SOURCE" "$APP_BUNDLE/Contents/Resources/AppIcon.png"
 cp "$MENU_BAR_ICON_SOURCE" "$APP_BUNDLE/Contents/Resources/MenuBarIcon.png"
+if [ -f "$VERSION_ENV_FILE" ]; then
+    cp "$VERSION_ENV_FILE" "$APP_BUNDLE/Contents/Resources/version.env"
+fi
 
 cat > "$APP_BUNDLE/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>

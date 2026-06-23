@@ -37,7 +37,7 @@ final class CodexAppServerClient {
                         "clientInfo": [
                             "name": "codex_agent_bar",
                             "title": "Codex Agent Bar",
-                            "version": "0.1.0",
+                            "version": AppVersion.shortVersion,
                         ],
                     ]
                 ) { result in
