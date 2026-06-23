@@ -1,4 +1,9 @@
-# Codex Agent Bar
+<div align="center">
+    <h1>Codex Agent Bar</h1>
+</div>
+<div align="center">
+    <img src="https://cdn.jsdelivr.net/gh/lonewolfyx/codex-agent-bar/screenshots.png" alt="codex-agent-bar">
+</div>
 
 ## Introduction
 
