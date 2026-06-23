@@ -33,6 +33,9 @@ jobs:
       - name: Build DMG
         shell: bash
         run: ./scripts/build-dmg.sh --version "${{ steps.release.outputs.version }}"
+        env:
+          SIGN_APP: "1"
+          CODE_SIGN_IDENTITY: "-"
 
       - name: Locate DMG
         id: dmg
@@ -58,6 +61,36 @@ jobs:
           echo "path=$dmg_path" >> "$GITHUB_OUTPUT"
           echo "name=$dmg_name" >> "$GITHUB_OUTPUT"
           ls -lh "$dmg_path"
+
+      - name: Verify DMG contents
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          dmg_path="${{ steps.dmg.outputs.path }}"
+          mount_dir="$(mktemp -d)"
+
+          cleanup() {
+            hdiutil detach "$mount_dir" >/dev/null 2>&1 || true
+            rm -rf "$mount_dir"
+          }
+          trap cleanup EXIT
+
+          hdiutil verify "$dmg_path"
+          hdiutil attach -readonly -nobrowse -mountpoint "$mount_dir" "$dmg_path" >/dev/null
+
+          app_path="$mount_dir/CodexAgentBar.app"
+          if [ ! -d "$app_path" ]; then
+            echo "Expected app bundle not found: $app_path" >&2
+            exit 1
+          fi
+
+          codesign --verify --deep --strict --verbose=4 "$app_path"
+          codesign -dv --verbose=4 "$app_path"
+
+          if ! spctl --assess --type execute --verbose=4 "$app_path"; then
+            echo "::warning::Gatekeeper rejected this app because the release is ad-hoc signed and not notarized."
+          fi
 
       - name: Create GitHub Release
         run: npx --yes genereleaselog@latest --output false --assets "${{ steps.dmg.outputs.path }}"
