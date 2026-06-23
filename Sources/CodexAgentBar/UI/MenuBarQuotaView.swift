@@ -48,9 +48,15 @@ final class MenuBarQuotaView: NSControl {
         wantsLayer = true
         toolTip = "Codex quota"
 
-        iconView.image = NSImage(systemSymbolName: "chart.pie.fill", accessibilityDescription: "Codex quota")
+        if let image = AppIcon.menuBarImage() {
+            iconView.image = image
+            iconView.contentTintColor = nil
+        } else {
+            iconView.image = NSImage(systemSymbolName: "chart.pie.fill", accessibilityDescription: "Codex quota")
+            iconView.contentTintColor = .labelColor
+        }
         iconView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
-        iconView.contentTintColor = .labelColor
+        iconView.imageScaling = .scaleProportionallyUpOrDown
         iconView.translatesAutoresizingMaskIntoConstraints = false
 
         [fiveHourPrefixLabel, fiveHourPercentLabel, weekPrefixLabel, weekPercentLabel].forEach { label in

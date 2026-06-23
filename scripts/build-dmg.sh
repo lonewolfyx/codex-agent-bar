@@ -15,6 +15,11 @@ APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 DMG_PATH="$DIST_DIR/$APP_NAME-$VERSION.dmg"
 STAGING_DIR="$DIST_DIR/dmg-staging"
 TEMP_DMG="$DIST_DIR/$APP_NAME-temp.dmg"
+ASSETS_DIR="$REPO_ROOT/Assets"
+ICON_SOURCE="$ASSETS_DIR/app-icon.png"
+MENU_BAR_ICON_SOURCE="$ASSETS_DIR/app-icon-light.png"
+ICONSET_DIR="$DIST_DIR/AppIcon.iconset"
+APP_ICON="$DIST_DIR/AppIcon.icns"
 
 usage() {
     cat <<EOF
@@ -95,6 +100,18 @@ require_command() {
 
 require_command swift
 require_command hdiutil
+require_command sips
+require_command iconutil
+
+if [ ! -f "$ICON_SOURCE" ]; then
+    echo "Expected app icon not found: $ICON_SOURCE" >&2
+    exit 1
+fi
+
+if [ ! -f "$MENU_BAR_ICON_SOURCE" ]; then
+    echo "Expected menu bar icon not found: $MENU_BAR_ICON_SOURCE" >&2
+    exit 1
+fi
 
 echo "Building $APP_NAME ($CONFIGURATION)..."
 cd "$REPO_ROOT"
@@ -106,13 +123,30 @@ if [ ! -x "$EXECUTABLE" ]; then
 fi
 
 echo "Creating app bundle..."
-rm -rf "$APP_BUNDLE" "$STAGING_DIR" "$TEMP_DMG" "$DMG_PATH"
+rm -rf "$APP_BUNDLE" "$STAGING_DIR" "$TEMP_DMG" "$DMG_PATH" "$ICONSET_DIR" "$APP_ICON"
 mkdir -p \
     "$APP_BUNDLE/Contents/MacOS" \
     "$APP_BUNDLE/Contents/Resources" \
     "$STAGING_DIR" \
     "$(dirname -- "$DMG_PATH")"
 cp "$EXECUTABLE" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+
+echo "Preparing app icon..."
+mkdir -p "$ICONSET_DIR"
+sips -z 16 16 "$ICON_SOURCE" --out "$ICONSET_DIR/icon_16x16.png" >/dev/null
+sips -z 32 32 "$ICON_SOURCE" --out "$ICONSET_DIR/icon_16x16@2x.png" >/dev/null
+sips -z 32 32 "$ICON_SOURCE" --out "$ICONSET_DIR/icon_32x32.png" >/dev/null
+sips -z 64 64 "$ICON_SOURCE" --out "$ICONSET_DIR/icon_32x32@2x.png" >/dev/null
+sips -z 128 128 "$ICON_SOURCE" --out "$ICONSET_DIR/icon_128x128.png" >/dev/null
+sips -z 256 256 "$ICON_SOURCE" --out "$ICONSET_DIR/icon_128x128@2x.png" >/dev/null
+sips -z 256 256 "$ICON_SOURCE" --out "$ICONSET_DIR/icon_256x256.png" >/dev/null
+sips -z 512 512 "$ICON_SOURCE" --out "$ICONSET_DIR/icon_256x256@2x.png" >/dev/null
+sips -z 512 512 "$ICON_SOURCE" --out "$ICONSET_DIR/icon_512x512.png" >/dev/null
+sips -z 1024 1024 "$ICON_SOURCE" --out "$ICONSET_DIR/icon_512x512@2x.png" >/dev/null
+iconutil -c icns "$ICONSET_DIR" -o "$APP_ICON"
+cp "$APP_ICON" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
+cp "$ICON_SOURCE" "$APP_BUNDLE/Contents/Resources/AppIcon.png"
+cp "$MENU_BAR_ICON_SOURCE" "$APP_BUNDLE/Contents/Resources/MenuBarIcon.png"
 
 cat > "$APP_BUNDLE/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -123,6 +157,8 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<EOF
     <string>en</string>
     <key>CFBundleExecutable</key>
     <string>$APP_NAME</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>$BUNDLE_ID</string>
     <key>CFBundleInfoDictionaryVersion</key>
@@ -166,6 +202,6 @@ hdiutil convert "$TEMP_DMG" \
     -imagekey zlib-level=9 \
     -o "$DMG_PATH" >/dev/null
 
-rm -rf "$STAGING_DIR" "$TEMP_DMG"
+rm -rf "$STAGING_DIR" "$TEMP_DMG" "$ICONSET_DIR" "$APP_ICON"
 
 echo "Created: $DMG_PATH"
