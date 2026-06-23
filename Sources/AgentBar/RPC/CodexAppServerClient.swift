@@ -24,7 +24,7 @@ final class CodexAppServerClient {
             }
 
             guard self.process == nil else {
-                completion(.failure(QuotaError.initializationFailed("app-server is already starting.")))
+                completion(.failure(QuotaError.initializationFailed(I18n.current.appServerAlreadyStarting)))
                 return
             }
 
@@ -123,7 +123,7 @@ final class CodexAppServerClient {
 
             client.queue.async {
                 client.log("app-server exited with status \(process.terminationStatus)")
-                client.failAllPendingLocked(QuotaError.appServerStartFailed("Process exited with status \(process.terminationStatus)."))
+                client.failAllPendingLocked(QuotaError.appServerStartFailed(I18n.current.appServerExited(status: process.terminationStatus)))
                 client.stopLocked()
             }
         }
@@ -270,7 +270,7 @@ final class CodexAppServerClient {
         inputPipe = nil
         outputPipe = nil
         errorPipe = nil
-        failAllPendingLocked(QuotaError.appServerStartFailed("Process stopped."))
+        failAllPendingLocked(QuotaError.appServerStartFailed(I18n.current.processStopped))
 
         if let process, process.isRunning {
             process.terminate()

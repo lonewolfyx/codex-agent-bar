@@ -18,7 +18,7 @@ struct CodexAccountService {
 
     private func parseAccountResponse(_ response: CodexAppServerClient.JSONDictionary) throws -> CodexAccount {
         guard let result = response["result"] as? CodexAppServerClient.JSONDictionary else {
-            throw QuotaError.parsingFailed("Missing account result.")
+            throw QuotaError.parsingFailed(I18n.current.missingAccountResult)
         }
 
         let account = result["account"] as? CodexAppServerClient.JSONDictionary

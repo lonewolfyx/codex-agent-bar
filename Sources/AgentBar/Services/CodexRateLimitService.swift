@@ -18,7 +18,7 @@ struct CodexRateLimitService {
 
     private func parseRateLimitResponse(_ response: CodexAppServerClient.JSONDictionary) throws -> QuotaSnapshot {
         guard let result = response["result"] as? CodexAppServerClient.JSONDictionary else {
-            throw QuotaError.parsingFailed("Missing rate limit result.")
+            throw QuotaError.parsingFailed(I18n.current.missingRateLimitResult)
         }
 
         let fallbackBucket = result["rateLimits"] as? CodexAppServerClient.JSONDictionary
@@ -36,7 +36,7 @@ struct CodexRateLimitService {
         }
 
         guard windows.count >= 2 else {
-            throw QuotaError.parsingFailed("Expected primary and secondary quota windows.")
+            throw QuotaError.parsingFailed(I18n.current.expectedQuotaWindows)
         }
 
         let selected = selectMenuWindows(from: windows)
@@ -70,7 +70,7 @@ struct CodexRateLimitService {
         windows.append(
             QuotaWindow(
                 id: "\(bucket["limitId"] as? String ?? "codex")-\(fieldName)-\(duration.map(String.init) ?? "unknown")",
-                title: "\(title) window",
+                title: "\(title) \(I18n.current.windowSuffix)",
                 shortTitle: shortTitle,
                 usedPercent: max(0, min(100, used)),
                 remainingPercent: remaining,
@@ -137,7 +137,7 @@ struct CodexRateLimitService {
 
     private func windowTitle(durationMins: Int?, fallback: String?) -> String {
         guard let durationMins else {
-            return fallback ?? "Quota"
+            return fallback ?? I18n.current.quotaFallbackTitle
         }
 
         switch durationMins {

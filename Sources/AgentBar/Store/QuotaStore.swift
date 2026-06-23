@@ -4,7 +4,7 @@ import Foundation
 @MainActor
 final class QuotaStore: ObservableObject {
     @Published var snapshot: QuotaSnapshot?
-    @Published var statusMessage = "Loading Codex quota..."
+    @Published var statusMessage = I18n.current.loadingQuota
     @Published var isLoading = false
 
     private let client = CodexAppServerClient()
@@ -49,7 +49,7 @@ final class QuotaStore: ObservableObject {
 
     private func refreshAccountAndRateLimits() {
         isLoading = true
-        statusMessage = snapshot == nil ? "Loading Codex quota..." : "Refreshing Codex quota..."
+        statusMessage = snapshot == nil ? I18n.current.loadingQuota : I18n.current.refreshingQuota
 
         client.start { [weak self] result in
             Task { @MainActor in
@@ -108,7 +108,7 @@ final class QuotaStore: ObservableObject {
         }
 
         isLoading = true
-        statusMessage = snapshot == nil ? "Loading Codex quota..." : "Refreshing Codex quota..."
+        statusMessage = snapshot == nil ? I18n.current.loadingQuota : I18n.current.refreshingQuota
 
         client.start { [weak self] result in
             Task { @MainActor in
@@ -136,7 +136,7 @@ final class QuotaStore: ObservableObject {
                 switch result {
                 case .success(let snapshot):
                     self.snapshot = snapshot
-                    self.statusMessage = account.planType.map { "Signed in as \($0)" } ?? "Codex quota loaded."
+                    self.statusMessage = account.planType.map { I18n.current.signedInAs($0) } ?? I18n.current.quotaLoaded
                     self.isLoading = false
                 case .failure(let error):
                     self.apply(error: error)
