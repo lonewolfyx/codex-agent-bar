@@ -2,7 +2,7 @@
     <h1>Codex Agent Bar</h1>
 </div>
 <div align="center">
-    <img src="https://cdn.jsdelivr.net/gh/lonewolfyx/codex-agent-bar/screenshots.png" alt="codex-agent-bar">
+    <img src="https://cdn.jsdelivr.net/gh/lonewolfyx/codex-agent-bar@main/screenshots.png" alt="codex-agent-bar">
 </div>
 
 ## Introduction
