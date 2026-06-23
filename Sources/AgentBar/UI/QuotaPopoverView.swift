@@ -26,7 +26,7 @@ struct QuotaPopoverView: View {
 
                 Spacer()
 
-                Button("Quit", action: onQuit)
+                Button(I18n.current.quit, action: onQuit)
                     .buttonStyle(.borderless)
                     .foregroundStyle(QuotaPopoverColors.primaryText)
             }
@@ -42,9 +42,9 @@ struct QuotaPopoverView: View {
     private var footerText: some View {
         Group {
             if let lastUpdated = store.snapshot?.lastUpdated {
-                Text("Last refresh \(lastUpdated.formatted(.dateTime.hour().minute().locale(Locale(identifier: "zh_CN"))))")
+                Text("\(I18n.current.lastRefreshPrefix) \(lastUpdated.formatted(.dateTime.hour().minute().locale(Locale(identifier: I18n.current.dateLocaleIdentifier))))")
             } else {
-                Text(store.isLoading ? "loading..." : "Not refreshed")
+                Text(store.isLoading ? I18n.current.loading : I18n.current.notRefreshed)
             }
         }
         .foregroundStyle(QuotaPopoverColors.mutedText)
@@ -89,9 +89,11 @@ struct QuotaRow: View {
     private var displayTitle: String {
         switch window.windowDurationMins {
         case 300:
-            return "当前会话"
+            return I18n.current.currentSession
         case 10080:
-            return "近 1 周"
+            return I18n.current.recentWeek
+        case let duration?:
+            return I18n.current.durationTitle(minutes: duration)
         default:
             return window.title
         }
@@ -114,16 +116,16 @@ struct QuotaRow: View {
 
     private var resetText: String {
         guard let resetsAt = window.resetsAt else {
-            return "刷新时间不可用"
+            return I18n.current.resetTimeUnavailable
         }
 
         if window.windowDurationMins == 10080 {
-            return "\(Self.dateFormatter.string(from: resetsAt))刷新"
+            return I18n.current.refreshAt(Self.dateFormatter().string(from: resetsAt))
         }
 
         let minutesUntilReset = Int(ceil(max(0, resetsAt.timeIntervalSinceNow) / 60))
         guard minutesUntilReset > 0 else {
-            return "即将刷新"
+            return I18n.current.resetSoon
         }
 
         let days = minutesUntilReset / 1_440
@@ -131,22 +133,22 @@ struct QuotaRow: View {
         let minutes = minutesUntilReset % 60
 
         if days > 0 {
-            return "\(days)天\(Self.twoDigit(hours))时\(Self.twoDigit(minutes))分钟后刷新"
+            return I18n.current.resetIn(days: days, hours: Self.twoDigit(hours), minutes: Self.twoDigit(minutes))
         }
 
-        return "\(Self.twoDigit(hours))时\(Self.twoDigit(minutes))分钟后刷新"
+        return I18n.current.resetIn(days: days, hours: Self.twoDigit(hours), minutes: Self.twoDigit(minutes))
     }
 
     private static func twoDigit(_ value: Int) -> String {
         String(format: "%02d", value)
     }
 
-    private static let dateFormatter: DateFormatter = {
+    private static func dateFormatter() -> DateFormatter {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
-        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        formatter.locale = Locale(identifier: I18n.current.dateLocaleIdentifier)
+        formatter.dateFormat = I18n.current.dateFormat
         return formatter
-    }()
+    }
 }
 
 private struct QuotaScaleLabels: View {

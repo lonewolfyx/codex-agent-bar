@@ -35,19 +35,19 @@ enum QuotaError: LocalizedError, Sendable {
     var errorDescription: String? {
         switch self {
         case .codexCLINotFound:
-            return "Cannot find codex CLI. Install Codex or add it to PATH."
+            return I18n.current.codexCLINotFound
         case .appServerStartFailed(let message):
-            return "Failed to start codex app-server: \(message)"
+            return I18n.current.appServerStartFailed(message)
         case .initializationFailed(let message):
-            return "JSON-RPC initialization failed: \(message)"
+            return I18n.current.initializationFailed(message)
         case .notSignedIn:
-            return "Not signed in. Run Codex login first."
+            return I18n.current.notSignedIn
         case .unsupportedAuthMode(let mode):
-            return "Current auth mode does not support ChatGPT rate limits\(mode.map { ": \($0)" } ?? ".")"
+            return I18n.current.unsupportedAuthMode(mode)
         case .rpcError(let message):
             return message
         case .parsingFailed(let message):
-            return "Failed to parse rate limits: \(message)"
+            return I18n.current.parsingFailed(message)
         }
     }
 }
