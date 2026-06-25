@@ -5,9 +5,12 @@ struct QuotaPopoverView: View {
     let onQuit: () -> Void
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
+            AccountInfoHeader(account: store.currentAccount)
+            Divider()
+
             if let snapshot = store.snapshot {
-                VStack(spacing: 18) {
+                VStack(spacing: 14) {
                     QuotaRow(window: snapshot.primary)
                     Divider()
                     QuotaRow(window: snapshot.secondary)
@@ -33,9 +36,10 @@ struct QuotaPopoverView: View {
             .font(.system(size: 12, weight: .medium))
         }
         .padding(.horizontal, 18)
-        .padding(.vertical, 16)
+        .padding(.top, 14)
+        .padding(.bottom, 16)
         .frame(width: 320)
-        .frame(height: 280)
+        .frame(height: 300)
         .background(Color.clear)
     }
 
@@ -51,11 +55,146 @@ struct QuotaPopoverView: View {
     }
 }
 
+private struct AccountInfoHeader: View {
+    let account: CodexAccount?
+
+    var body: some View {
+        HStack(spacing: 12) {
+            HStack(spacing: 7) {
+                Image(systemName: "person.crop.circle.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(QuotaPopoverColors.scaleText)
+
+                Text(displayEmail)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(QuotaPopoverColors.primaryText)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            .layoutPriority(1)
+
+            Spacer(minLength: 8)
+
+            RoleBadge(role: displayRole)
+                .fixedSize()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var displayEmail: String {
+        displayValue(account?.email)
+    }
+
+    private var displayRole: String {
+        capitalizedFirstLetter(displayValue(account?.planType))
+    }
+
+    private func displayValue(_ value: String?) -> String {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
+            return "--"
+        }
+
+        return value
+    }
+
+    private func capitalizedFirstLetter(_ value: String) -> String {
+        guard let first = value.first, first.isLetter else {
+            return value
+        }
+
+        return first.uppercased() + value.dropFirst().lowercased()
+    }
+}
+
+private struct RoleBadge: View {
+    let role: String
+
+    var body: some View {
+        let style = BadgeStyle(role: role)
+
+        Text(role)
+            .font(.system(size: 11, weight: .bold, design: .rounded))
+            .foregroundStyle(style.text)
+            .padding(.horizontal, style.hasContainer ? 8 : 0)
+            .padding(.vertical, style.hasContainer ? 3 : 0)
+            .background {
+                if style.hasContainer {
+                    Capsule()
+                        .fill(style.background)
+                }
+            }
+            .overlay {
+                if style.hasContainer {
+                    Capsule()
+                        .stroke(style.border, lineWidth: 1)
+                }
+            }
+    }
+}
+
+private struct BadgeStyle {
+    let role: String
+
+    var hasContainer: Bool {
+        switch normalizedRole {
+        case "go", "plus", "pro":
+            return true
+        default:
+            return false
+        }
+    }
+
+    var text: Color {
+        switch normalizedRole {
+        case "go":
+            return Color(nsColor: .systemBlue)
+        case "plus":
+            return Color(nsColor: .systemGreen)
+        case "pro":
+            return Color(nsColor: .systemPurple)
+        case "free":
+            return QuotaPopoverColors.mutedText
+        default:
+            return QuotaPopoverColors.primaryText
+        }
+    }
+
+    var background: Color {
+        switch normalizedRole {
+        case "go":
+            return Color(nsColor: .systemBlue).opacity(0.12)
+        case "plus":
+            return Color(nsColor: .systemGreen).opacity(0.13)
+        case "pro":
+            return Color(nsColor: .systemPurple).opacity(0.13)
+        default:
+            return Color.clear
+        }
+    }
+
+    var border: Color {
+        switch normalizedRole {
+        case "go":
+            return Color(nsColor: .systemBlue).opacity(0.45)
+        case "plus":
+            return Color(nsColor: .systemGreen).opacity(0.5)
+        case "pro":
+            return Color(nsColor: .systemPurple).opacity(0.5)
+        default:
+            return Color.clear
+        }
+    }
+
+    private var normalizedRole: String {
+        role.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+}
+
 struct QuotaRow: View {
     let window: QuotaWindow
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 5) {
             HStack(alignment: .center) {
                 Text(displayTitle)
                     .font(.system(size: 13, weight: .semibold))

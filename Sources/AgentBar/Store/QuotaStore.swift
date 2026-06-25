@@ -6,13 +6,13 @@ final class QuotaStore: ObservableObject {
     @Published var snapshot: QuotaSnapshot?
     @Published var statusMessage = I18n.current.loadingQuota
     @Published var isLoading = false
+    @Published private(set) var currentAccount: CodexAccount?
 
     private let client = CodexAppServerClient()
     private let accountService = CodexAccountService()
     private let rateLimitService = CodexRateLimitService()
     private var refreshTimer: Timer?
     private var hasStarted = false
-    private var currentAccount: CodexAccount?
 
     init() {
         client.notificationHandler = { [weak self] method, _ in
