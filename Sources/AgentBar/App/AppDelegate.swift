@@ -52,7 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let popover = NSPopover()
         popover.behavior = .transient
         popover.delegate = self
-        popover.contentSize = NSSize(width: 320, height: 280)
+        popover.contentSize = NSSize(width: 320, height: 300)
         popover.contentViewController = VisualEffectHostingController(
             rootView: QuotaPopoverView(
                 store: store,
