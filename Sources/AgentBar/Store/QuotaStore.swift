@@ -6,6 +6,8 @@ final class QuotaStore: ObservableObject {
     @Published var snapshot: QuotaSnapshot?
     @Published var statusMessage = I18n.current.loadingQuota
     @Published var isLoading = false
+    @Published var cliUpgradeMessage: String?
+    @Published var cliUpgradeAlertMessage: String?
     @Published private(set) var currentAccount: CodexAccount?
 
     private let client = CodexAppServerClient()
@@ -33,10 +35,31 @@ final class QuotaStore: ObservableObject {
         }
 
         hasStarted = true
-        refreshAccountAndRateLimits()
-        refreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+        isLoading = true
+        statusMessage = I18n.current.loadingQuota
+        checkCodexCLIVersionThenStart()
+    }
+
+    private func checkCodexCLIVersionThenStart() {
+        client.checkMinimumResetCreditsVersion { [weak self] result in
             Task { @MainActor in
-                self?.refreshRateLimitsOnly()
+                guard let self else {
+                    return
+                }
+
+                switch result {
+                case .success:
+                    self.cliUpgradeMessage = nil
+                    self.cliUpgradeAlertMessage = nil
+                    self.refreshAccountAndRateLimits()
+                    self.refreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+                        Task { @MainActor in
+                            self?.refreshRateLimitsOnly()
+                        }
+                    }
+                case .failure(let error):
+                    self.apply(error: error)
+                }
             }
         }
     }
@@ -49,6 +72,7 @@ final class QuotaStore: ObservableObject {
 
     private func refreshAccountAndRateLimits() {
         isLoading = true
+        cliUpgradeMessage = nil
         statusMessage = snapshot == nil ? I18n.current.loadingQuota : I18n.current.refreshingQuota
 
         client.start { [weak self] result in
@@ -108,6 +132,7 @@ final class QuotaStore: ObservableObject {
         }
 
         isLoading = true
+        cliUpgradeMessage = nil
         statusMessage = snapshot == nil ? I18n.current.loadingQuota : I18n.current.refreshingQuota
 
         client.start { [weak self] result in
@@ -146,6 +171,15 @@ final class QuotaStore: ObservableObject {
     }
 
     private func apply(error: Error) {
+        if case QuotaError.unsupportedCodexCLIVersion(let current, let required) = error {
+            statusMessage = I18n.current.loadingQuota
+            cliUpgradeMessage = I18n.current.codexCLIUpgradeInlineMessage(current: current, required: required)
+            cliUpgradeAlertMessage = I18n.current.codexCLIUpgradeAlertMessage(current: current, required: required)
+            isLoading = false
+            print("[AgentBar] Quota refresh failed: \(error.localizedDescription)")
+            return
+        }
+
         statusMessage = error.localizedDescription
         isLoading = false
         print("[AgentBar] Quota refresh failed: \(error.localizedDescription)")

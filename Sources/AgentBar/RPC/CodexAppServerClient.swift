@@ -4,6 +4,8 @@ final class CodexAppServerClient {
     typealias JSONDictionary = [String: Any]
     typealias Completion = @Sendable (Result<JSONDictionary, Error>) -> Void
 
+    static let minimumResetCreditsVersion = CodexCLIVersion(major: 0, minor: 142, patch: 3)
+
     var notificationHandler: ((String, JSONDictionary?) -> Void)?
 
     private let queue = DispatchQueue(label: "AgentBar.rpc")
@@ -75,8 +77,32 @@ final class CodexAppServerClient {
         }
     }
 
+    func checkMinimumResetCreditsVersion(completion: @escaping @Sendable (Result<CodexCLIVersion, Error>) -> Void) {
+        queue.async {
+            guard let codexPath = Self.resolveCodexCLIPath() else {
+                completion(.failure(QuotaError.codexCLINotFound))
+                return
+            }
+
+            do {
+                let version = try Self.readCodexCLIVersion(codexPath: codexPath)
+                guard version >= Self.minimumResetCreditsVersion else {
+                    completion(.failure(QuotaError.unsupportedCodexCLIVersion(
+                        current: version.displayText,
+                        required: Self.minimumResetCreditsVersion.displayText
+                    )))
+                    return
+                }
+
+                completion(.success(version))
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
+
     private func launchProcess() throws {
-        guard let codexPath = resolveCodexCLIPath() else {
+        guard let codexPath = Self.resolveCodexCLIPath() else {
             throw QuotaError.codexCLINotFound
         }
 
@@ -87,7 +113,7 @@ final class CodexAppServerClient {
 
         process.executableURL = URL(fileURLWithPath: codexPath)
         process.arguments = ["-s", "read-only", "-a", "untrusted", "app-server"]
-        process.environment = makeProcessEnvironment(codexPath: codexPath)
+        process.environment = Self.makeProcessEnvironment(codexPath: codexPath)
         process.standardInput = inputPipe
         process.standardOutput = outputPipe
         process.standardError = errorPipe
@@ -137,7 +163,7 @@ final class CodexAppServerClient {
         log("Started codex app-server at \(codexPath)")
     }
 
-    private func makeProcessEnvironment(codexPath: String) -> [String: String] {
+    private static func makeProcessEnvironment(codexPath: String) -> [String: String] {
         var environment = ProcessInfo.processInfo.environment
         let codexBinDirectory = URL(fileURLWithPath: codexPath).deletingLastPathComponent().path
         let defaultPath = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
@@ -279,7 +305,34 @@ final class CodexAppServerClient {
         process = nil
     }
 
-    private func resolveCodexCLIPath() -> String? {
+    private static func readCodexCLIVersion(codexPath: String) throws -> CodexCLIVersion {
+        let process = Process()
+        let outputPipe = Pipe()
+        let errorPipe = Pipe()
+
+        process.executableURL = URL(fileURLWithPath: codexPath)
+        process.arguments = ["--version"]
+        process.environment = makeProcessEnvironment(codexPath: codexPath)
+        process.standardOutput = outputPipe
+        process.standardError = errorPipe
+
+        try process.run()
+        process.waitUntilExit()
+
+        let output = outputPipe.fileHandleForReading.readDataToEndOfFile()
+        let errorOutput = errorPipe.fileHandleForReading.readDataToEndOfFile()
+        let stdout = String(data: output, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let stderr = String(data: errorOutput, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let versionText = stdout.isEmpty ? stderr : stdout
+
+        guard process.terminationStatus == 0, let version = CodexCLIVersion.parse(versionText) else {
+            throw QuotaError.appServerStartFailed(versionText)
+        }
+
+        return version
+    }
+
+    private static func resolveCodexCLIPath() -> String? {
         let fileManager = FileManager.default
         let environmentPath = ProcessInfo.processInfo.environment["PATH"] ?? ""
         let pathCandidates = environmentPath

@@ -10,16 +10,19 @@ struct QuotaPopoverView: View {
             Divider()
 
             if let snapshot = store.snapshot {
+                ResetCreditsRow(availableCount: snapshot.availableResetCredits)
+                Divider()
+
                 VStack(spacing: 14) {
                     QuotaRow(window: snapshot.primary)
                     Divider()
                     QuotaRow(window: snapshot.secondary)
                 }
             } else {
-                Text(store.statusMessage)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(QuotaPopoverColors.mutedText)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                LoadingStatusView(
+                    statusMessage: store.statusMessage,
+                    cliUpgradeMessage: store.cliUpgradeMessage
+                )
             }
 
             Divider()
@@ -39,7 +42,7 @@ struct QuotaPopoverView: View {
         .padding(.top, 14)
         .padding(.bottom, 16)
         .frame(width: 320)
-        .frame(height: 300)
+        .frame(height: 350)
         .background(Color.clear)
     }
 
@@ -129,6 +132,72 @@ private struct RoleBadge: View {
                         .stroke(style.border, lineWidth: 1)
                 }
             }
+    }
+}
+
+private struct ResetCreditsRow: View {
+    let availableCount: Int?
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(I18n.current.availableResetCredits)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(QuotaPopoverColors.titleText)
+
+            Spacer(minLength: 8)
+
+            ResetCreditsBadge(text: displayCount)
+                .fixedSize()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var displayCount: String {
+        availableCount.map(String.init) ?? "--"
+    }
+}
+
+private struct ResetCreditsBadge: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 11, weight: .bold, design: .rounded))
+            .foregroundStyle(QuotaPopoverColors.indigoText)
+            .monospacedDigit()
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background {
+                Capsule()
+                    .fill(QuotaPopoverColors.indigoBackground)
+            }
+            .overlay {
+                Capsule()
+                    .stroke(QuotaPopoverColors.indigoBorder, lineWidth: 1)
+            }
+    }
+}
+
+private struct LoadingStatusView: View {
+    let statusMessage: String
+    let cliUpgradeMessage: String?
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Text(statusMessage)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(QuotaPopoverColors.mutedText)
+
+            if let cliUpgradeMessage {
+                Text(cliUpgradeMessage)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color(nsColor: .systemRed))
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 }
 
@@ -389,4 +458,7 @@ private enum QuotaPopoverColors {
     static let scaleText = Color(nsColor: .tertiaryLabelColor)
     static let track = Color(nsColor: .tertiaryLabelColor).opacity(0.26)
     static let marker = Color(nsColor: .secondaryLabelColor)
+    static let indigoText = Color.indigo
+    static let indigoBackground = Color.indigo.opacity(0.13)
+    static let indigoBorder = Color.indigo.opacity(0.5)
 }
