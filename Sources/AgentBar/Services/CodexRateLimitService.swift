@@ -43,6 +43,7 @@ struct CodexRateLimitService {
         let snapshot = QuotaSnapshot(
             primary: selected.primary,
             secondary: selected.secondary,
+            availableResetCredits: resetCreditsAvailableCount(from: result),
             lastUpdated: Date()
         )
 
@@ -119,6 +120,14 @@ struct CodexRateLimitService {
         return nil
     }
 
+    private func resetCreditsAvailableCount(from result: CodexAppServerClient.JSONDictionary) -> Int? {
+        guard let resetCredits = result["rateLimitResetCredits"] as? CodexAppServerClient.JSONDictionary else {
+            return nil
+        }
+
+        return intValue(resetCredits["availableCount"])
+    }
+
     private func doubleValue(_ value: Any?) -> Double? {
         if let value = value as? Double {
             return value
@@ -174,6 +183,7 @@ struct CodexRateLimitService {
         let payload: [String: Any] = [
             "primary": printableWindow(snapshot.primary, formatter: formatter),
             "secondary": printableWindow(snapshot.secondary, formatter: formatter),
+            "availableResetCredits": snapshot.availableResetCredits ?? NSNull(),
             "lastUpdated": formatter.string(from: snapshot.lastUpdated),
         ]
 

@@ -35,6 +35,8 @@ enum I18n {
         let missingAccountResult: String
         let missingRateLimitResult: String
         let expectedQuotaWindows: String
+        let availableResetCredits: String
+        let codexCLIUpgradeAlertTitle: String
 
         func signedInAs(_ planType: String) -> String {
             switch I18n.language {
@@ -69,6 +71,33 @@ enum I18n {
                 return "当前登录方式不支持 ChatGPT 额度\(mode.map { "：\($0)" } ?? "。")"
             case .english:
                 return "Current auth mode does not support ChatGPT rate limits\(mode.map { ": \($0)" } ?? ".")"
+            }
+        }
+
+        func unsupportedCodexCLIVersion(current: String, required: String) -> String {
+            switch I18n.language {
+            case .simplifiedChinese:
+                return "当前 Codex CLI 版本 \(current) 低于 \(required)，请升级 @openai/codex。"
+            case .english:
+                return "Current Codex CLI version \(current) is lower than \(required). Upgrade @openai/codex."
+            }
+        }
+
+        func codexCLIUpgradeInlineMessage(current: String, required: String) -> String {
+            switch I18n.language {
+            case .simplifiedChinese:
+                return "当前版本 \(current) 低于 \(required)，请升级 CLI"
+            case .english:
+                return "Version \(current) is below \(required). Upgrade the CLI."
+            }
+        }
+
+        func codexCLIUpgradeAlertMessage(current: String, required: String) -> String {
+            switch I18n.language {
+            case .simplifiedChinese:
+                return "当前 @openai/codex CLI 版本为 \(current)，低于最低要求 \(required)。请升级到 \(required) 或更高版本后重新启动 AgentBar。"
+            case .english:
+                return "Your @openai/codex CLI version is \(current), below the required \(required). Upgrade to \(required) or later, then restart AgentBar."
             }
         }
 
@@ -183,7 +212,9 @@ enum I18n {
         processStopped: "Process stopped.",
         missingAccountResult: "Missing account result.",
         missingRateLimitResult: "Missing rate limit result.",
-        expectedQuotaWindows: "Expected primary and secondary quota windows."
+        expectedQuotaWindows: "Expected primary and secondary quota windows.",
+        availableResetCredits: "Available resets:",
+        codexCLIUpgradeAlertTitle: "Codex CLI update required"
     )
 
     private static let simplifiedChinese = Strings(
@@ -214,6 +245,8 @@ enum I18n {
         processStopped: "进程已停止。",
         missingAccountResult: "缺少账户结果。",
         missingRateLimitResult: "缺少额度结果。",
-        expectedQuotaWindows: "需要 primary 和 secondary 两个额度窗口。"
+        expectedQuotaWindows: "需要 primary 和 secondary 两个额度窗口。",
+        availableResetCredits: "可用重置次数：",
+        codexCLIUpgradeAlertTitle: "需要升级 Codex CLI"
     )
 }

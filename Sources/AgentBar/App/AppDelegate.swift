@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var localEventMonitor: Any?
     private var globalEventMonitor: Any?
     private var cancellables = Set<AnyCancellable>()
+    private var lastShownCLIUpgradeAlertMessage: String?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -52,7 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let popover = NSPopover()
         popover.behavior = .transient
         popover.delegate = self
-        popover.contentSize = NSSize(width: 320, height: 300)
+        popover.contentSize = NSSize(width: 320, height: 350)
         popover.contentViewController = VisualEffectHostingController(
             rootView: QuotaPopoverView(
                 store: store,
@@ -78,10 +79,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                 self?.updateMenuBarTitle()
             }
             .store(in: &cancellables)
+
+        store.$cliUpgradeAlertMessage
+            .receive(on: RunLoop.main)
+            .sink { [weak self] message in
+                self?.showCLIUpgradeAlertIfNeeded(message)
+            }
+            .store(in: &cancellables)
     }
 
     private func updateMenuBarTitle() {
         menuBarView?.update(snapshot: store.snapshot, statusMessage: store.statusMessage)
+    }
+
+    private func showCLIUpgradeAlertIfNeeded(_ message: String?) {
+        guard
+            let message,
+            !message.isEmpty,
+            message != lastShownCLIUpgradeAlertMessage
+        else {
+            return
+        }
+
+        lastShownCLIUpgradeAlertMessage = message
+        NSApp.activate(ignoringOtherApps: true)
+
+        let alert = NSAlert()
+        alert.messageText = I18n.current.codexCLIUpgradeAlertTitle
+        alert.informativeText = message
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 
     @objc private func togglePopover(_ sender: NSControl) {
