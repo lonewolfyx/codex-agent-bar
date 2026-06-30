@@ -344,6 +344,10 @@ struct QuotaRow: View {
             return I18n.current.resetTimeUnavailable
         }
 
+        if window.windowDurationMins == 300 {
+            return I18n.current.refreshAt(Self.timeFormatter().string(from: resetsAt))
+        }
+
         if window.windowDurationMins == 10080 {
             return I18n.current.refreshAt(Self.dateFormatter().string(from: resetsAt))
         }
@@ -366,6 +370,13 @@ struct QuotaRow: View {
 
     private static func twoDigit(_ value: Int) -> String {
         String(format: "%02d", value)
+    }
+
+    private static func timeFormatter() -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: I18n.current.dateLocaleIdentifier)
+        formatter.dateFormat = "HH:mm:ss"
+        return formatter
     }
 
     private static func dateFormatter() -> DateFormatter {
