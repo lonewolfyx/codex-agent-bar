@@ -34,8 +34,15 @@ enum I18n {
         let processStopped: String
         let missingAccountResult: String
         let missingRateLimitResult: String
+        let missingTokenUsageResult: String
         let expectedQuotaWindows: String
         let availableResetCredits: String
+        let todayTokenUsage: String
+        let yesterdayTokenUsage: String
+        let totalTokenUsage: String
+        let averageWeeklyTokenUsage: String
+        let tokenUsageChartTitle: String
+        let tokenUsageUnavailable: String
         let codexCLIUpgradeAlertTitle: String
 
         func signedInAs(_ planType: String) -> String {
@@ -160,6 +167,15 @@ enum I18n {
                 }
             }
         }
+
+        func tokenUsageTooltip(dateText: String, tokenText: String) -> String {
+            switch I18n.language {
+            case .simplifiedChinese:
+                return "\(dateText)使用了 \(tokenText) 个 Token"
+            case .english:
+                return "\(dateText) used \(tokenText) tokens"
+            }
+        }
     }
 
     static var current: Strings {
@@ -212,8 +228,15 @@ enum I18n {
         processStopped: "Process stopped.",
         missingAccountResult: "Missing account result.",
         missingRateLimitResult: "Missing rate limit result.",
+        missingTokenUsageResult: "Missing token usage result.",
         expectedQuotaWindows: "Expected primary and secondary quota windows.",
         availableResetCredits: "Available resets:",
+        todayTokenUsage: "Today tokens",
+        yesterdayTokenUsage: "Yesterday tokens",
+        totalTokenUsage: "Total tokens",
+        averageWeeklyTokenUsage: "Weekly avg tokens",
+        tokenUsageChartTitle: "Past 30 days",
+        tokenUsageUnavailable: "Token usage unavailable",
         codexCLIUpgradeAlertTitle: "Codex CLI update required"
     )
 
@@ -245,8 +268,15 @@ enum I18n {
         processStopped: "进程已停止。",
         missingAccountResult: "缺少账户结果。",
         missingRateLimitResult: "缺少额度结果。",
+        missingTokenUsageResult: "缺少 token 消耗结果。",
         expectedQuotaWindows: "需要 primary 和 secondary 两个额度窗口。",
         availableResetCredits: "可用重置次数：",
+        todayTokenUsage: "今日 Token 数",
+        yesterdayTokenUsage: "昨日 Token 数",
+        totalTokenUsage: "累计 Token 数",
+        averageWeeklyTokenUsage: "周均 Token 数",
+        tokenUsageChartTitle: "近 30 天",
+        tokenUsageUnavailable: "Token 消耗不可用",
         codexCLIUpgradeAlertTitle: "需要升级 Codex CLI"
     )
 }

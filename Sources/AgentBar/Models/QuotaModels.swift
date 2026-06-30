@@ -17,6 +17,25 @@ struct QuotaSnapshot: Sendable {
     var lastUpdated: Date
 }
 
+struct TokenUsageDay: Identifiable, Sendable {
+    let date: Date
+    let tokens: Int
+
+    var id: TimeInterval {
+        date.timeIntervalSince1970
+    }
+}
+
+struct TokenUsageSnapshot: Sendable {
+    let todayTokens: Int
+    let yesterdayTokens: Int
+    let totalTokens: Int?
+    let averageWeeklyTokens: Int
+    let dailyUsage: [TokenUsageDay]
+    let hasDailyUsageBuckets: Bool
+    let lastUpdated: Date
+}
+
 struct CodexCLIVersion: Comparable, Sendable {
     let major: Int
     let minor: Int
