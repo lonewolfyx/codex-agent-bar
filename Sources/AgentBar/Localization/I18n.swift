@@ -14,6 +14,7 @@ enum I18n {
         let loading: String
         let notRefreshed: String
         let lastRefreshPrefix: String
+        let aboutUs: String
         let quit: String
         let currentSession: String
         let recentWeek: String
@@ -208,6 +209,7 @@ enum I18n {
         loading: "loading...",
         notRefreshed: "Not refreshed",
         lastRefreshPrefix: "Last refresh",
+        aboutUs: "About us",
         quit: "Quit",
         currentSession: "Current session",
         recentWeek: "Past 1 week",
@@ -248,6 +250,7 @@ enum I18n {
         loading: "加载中...",
         notRefreshed: "尚未刷新",
         lastRefreshPrefix: "上次刷新",
+        aboutUs: "关于我们",
         quit: "退出",
         currentSession: "当前会话",
         recentWeek: "近 1 周",

@@ -53,10 +53,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let popover = NSPopover()
         popover.behavior = .transient
         popover.delegate = self
-        popover.contentSize = NSSize(width: 320, height: 350)
+        popover.contentSize = NSSize(width: 320, height: 640)
         popover.contentViewController = VisualEffectHostingController(
             rootView: QuotaPopoverView(
                 store: store,
+                onAbout: {
+                    guard let url = URL(string: "http://github.com/lonewolfyx/codex-agent-bar") else {
+                        return
+                    }
+
+                    NSWorkspace.shared.open(url)
+                },
                 onQuit: {
                     NSApp.terminate(nil)
                 }
