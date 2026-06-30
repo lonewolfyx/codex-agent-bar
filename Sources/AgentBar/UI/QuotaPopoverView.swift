@@ -2,6 +2,7 @@ import SwiftUI
 
 struct QuotaPopoverView: View {
     @ObservedObject var store: QuotaStore
+    let onAbout: () -> Void
     let onQuit: () -> Void
 
     var body: some View {
@@ -14,22 +15,13 @@ struct QuotaPopoverView: View {
 
             Divider()
 
-            HStack {
-                footerText
-
-                Spacer()
-
-                Button(I18n.current.quit, action: onQuit)
-                    .buttonStyle(.borderless)
-                    .foregroundStyle(QuotaPopoverColors.primaryText)
-            }
-            .font(.system(size: 12, weight: .medium))
+            footer
         }
         .padding(.horizontal, 18)
         .padding(.top, 14)
         .padding(.bottom, 16)
         .frame(width: 320)
-        .frame(height: 610)
+        .frame(height: 640)
         .background(Color.clear)
     }
 
@@ -63,15 +55,56 @@ struct QuotaPopoverView: View {
         }
     }
 
-    private var footerText: some View {
-        Group {
-            if let lastUpdated = store.snapshot?.lastUpdated {
-                Text("\(I18n.current.lastRefreshPrefix) \(lastUpdated.formatted(.dateTime.hour().minute().locale(Locale(identifier: I18n.current.dateLocaleIdentifier))))")
-            } else {
-                Text(store.isLoading ? I18n.current.loading : I18n.current.notRefreshed)
+    private var footer: some View {
+        VStack(spacing: 8) {
+            Button(action: onAbout) {
+                HStack(spacing: 6) {
+                    Text(I18n.current.aboutUs)
+
+                    Spacer(minLength: 8)
+
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(QuotaPopoverColors.scaleText)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .foregroundStyle(QuotaPopoverColors.primaryText)
+
+            HStack {
+                Text(I18n.current.lastRefreshPrefix)
+                    .foregroundStyle(QuotaPopoverColors.mutedText)
+
+                Spacer(minLength: 8)
+
+                Text(lastRefreshValue)
+                    .foregroundStyle(QuotaPopoverColors.mutedText)
+                    .monospacedDigit()
+            }
+
+            Button(action: onQuit) {
+                HStack {
+                    Text(I18n.current.quit)
+
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(QuotaPopoverColors.primaryText)
         }
-        .foregroundStyle(QuotaPopoverColors.mutedText)
+        .font(.system(size: 12, weight: .medium))
+    }
+
+    private var lastRefreshValue: String {
+        if let lastUpdated = store.snapshot?.lastUpdated {
+            return lastUpdated.formatted(.dateTime.hour().minute().locale(Locale(identifier: I18n.current.dateLocaleIdentifier)))
+        }
+
+        return store.isLoading ? I18n.current.loading : I18n.current.notRefreshed
     }
 }
 
