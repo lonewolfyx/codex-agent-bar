@@ -8,17 +8,20 @@ struct QuotaPopoverView: View {
     var body: some View {
         VStack(spacing: 10) {
             AccountInfoHeader(account: store.currentAccount)
+                .padding(.horizontal, QuotaPopoverLayout.horizontalPadding)
             Divider()
+                .padding(.horizontal, QuotaPopoverLayout.horizontalPadding)
 
             content
                 .frame(maxHeight: .infinity, alignment: .top)
+                .padding(.horizontal, QuotaPopoverLayout.horizontalPadding)
 
             Divider()
+                .padding(.horizontal, QuotaPopoverLayout.horizontalPadding)
 
             footer
         }
-        .padding(.horizontal, 18)
-        .padding(.top, 14)
+        .padding(.top, QuotaPopoverLayout.topPadding)
         .padding(.bottom, 16)
         .frame(width: 320)
         .frame(height: 640)
@@ -57,22 +60,6 @@ struct QuotaPopoverView: View {
 
     private var footer: some View {
         VStack(spacing: 8) {
-            Button(action: onAbout) {
-                HStack(spacing: 6) {
-                    Text(I18n.current.aboutUs)
-
-                    Spacer(minLength: 8)
-
-                    Image(systemName: "arrow.up.right")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(QuotaPopoverColors.scaleText)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(QuotaPopoverColors.primaryText)
-
             HStack {
                 Text(I18n.current.lastRefreshPrefix)
                     .foregroundStyle(QuotaPopoverColors.mutedText)
@@ -83,18 +70,22 @@ struct QuotaPopoverView: View {
                     .foregroundStyle(QuotaPopoverColors.mutedText)
                     .monospacedDigit()
             }
+            .padding(.horizontal, QuotaPopoverLayout.horizontalPadding)
 
-            Button(action: onQuit) {
-                HStack {
-                    Text(I18n.current.quit)
+            Divider()
+                .padding(.horizontal, QuotaPopoverLayout.horizontalPadding)
 
-                    Spacer()
+            VStack(spacing: 4) {
+                FooterActionButton(title: I18n.current.aboutUs, action: onAbout) {
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 10, weight: .semibold))
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
+
+                FooterActionButton(title: I18n.current.quit, action: onQuit) {
+                    EmptyView()
+                }
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(QuotaPopoverColors.primaryText)
+            .padding(.horizontal, QuotaPopoverLayout.menuHighlightMargin)
         }
         .font(.system(size: 12, weight: .medium))
     }
@@ -105,6 +96,58 @@ struct QuotaPopoverView: View {
         }
 
         return store.isLoading ? I18n.current.loading : I18n.current.notRefreshed
+    }
+}
+
+private enum QuotaPopoverLayout {
+    static let topPadding: CGFloat = 22
+    static let horizontalPadding: CGFloat = 18
+    static let menuHighlightMargin: CGFloat = 5
+    static let menuItemHorizontalPadding: CGFloat = horizontalPadding - menuHighlightMargin
+}
+
+private struct FooterActionButton<Trailing: View>: View {
+    let title: String
+    let action: () -> Void
+    @ViewBuilder let trailing: () -> Trailing
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Text(title)
+
+                Spacer(minLength: 8)
+
+                trailing()
+                    .foregroundStyle(trailingColor)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, QuotaPopoverLayout.menuItemHorizontalPadding)
+            .padding(.vertical, 5)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(textColor)
+        .frame(maxWidth: .infinity)
+        .background {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(isHovering ? QuotaPopoverColors.menuSelectionBackground : Color.clear)
+        }
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            isHovering = hovering
+        }
+        .animation(.easeOut(duration: 0.08), value: isHovering)
+    }
+
+    private var textColor: Color {
+        isHovering ? QuotaPopoverColors.menuSelectionText : QuotaPopoverColors.primaryText
+    }
+
+    private var trailingColor: Color {
+        isHovering ? QuotaPopoverColors.menuSelectionText : QuotaPopoverColors.scaleText
     }
 }
 
@@ -522,4 +565,6 @@ enum QuotaPopoverColors {
     static let indigoText = Color.indigo
     static let indigoBackground = Color.indigo.opacity(0.13)
     static let indigoBorder = Color.indigo.opacity(0.5)
+    static let menuSelectionBackground = Color.accentColor
+    static let menuSelectionText = Color.white
 }
