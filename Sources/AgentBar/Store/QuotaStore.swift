@@ -4,6 +4,8 @@ import Foundation
 @MainActor
 final class QuotaStore: ObservableObject {
     @Published var snapshot: QuotaSnapshot?
+    @Published var tokenUsageSnapshot: TokenUsageSnapshot?
+    @Published var tokenUsageErrorMessage: String?
     @Published var statusMessage = I18n.current.loadingQuota
     @Published var isLoading = false
     @Published var cliUpgradeMessage: String?
@@ -13,6 +15,7 @@ final class QuotaStore: ObservableObject {
     private let client = CodexAppServerClient()
     private let accountService = CodexAccountService()
     private let rateLimitService = CodexRateLimitService()
+    private let tokenUsageService = CodexTokenUsageService()
     private var refreshTimer: Timer?
     private var hasStarted = false
 
@@ -161,11 +164,32 @@ final class QuotaStore: ObservableObject {
                 switch result {
                 case .success(let snapshot):
                     self.snapshot = snapshot
-                    self.statusMessage = account.planType.map { I18n.current.signedInAs($0) } ?? I18n.current.quotaLoaded
-                    self.isLoading = false
+                    self.readTokenUsage(account: account)
                 case .failure(let error):
                     self.apply(error: error)
                 }
+            }
+        }
+    }
+
+    private func readTokenUsage(account: CodexAccount) {
+        tokenUsageService.readTokenUsage(client: client) { [weak self] result in
+            Task { @MainActor in
+                guard let self else {
+                    return
+                }
+
+                switch result {
+                case .success(let snapshot):
+                    self.tokenUsageSnapshot = snapshot
+                    self.tokenUsageErrorMessage = nil
+                case .failure(let error):
+                    self.tokenUsageErrorMessage = error.localizedDescription
+                    print("[AgentBar] Token usage refresh failed: \(error.localizedDescription)")
+                }
+
+                self.statusMessage = account.planType.map { I18n.current.signedInAs($0) } ?? I18n.current.quotaLoaded
+                self.isLoading = false
             }
         }
     }

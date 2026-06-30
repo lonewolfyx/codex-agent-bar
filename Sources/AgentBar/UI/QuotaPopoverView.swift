@@ -9,21 +9,8 @@ struct QuotaPopoverView: View {
             AccountInfoHeader(account: store.currentAccount)
             Divider()
 
-            if let snapshot = store.snapshot {
-                ResetCreditsRow(availableCount: snapshot.availableResetCredits)
-                Divider()
-
-                VStack(spacing: 14) {
-                    QuotaRow(window: snapshot.primary)
-                    Divider()
-                    QuotaRow(window: snapshot.secondary)
-                }
-            } else {
-                LoadingStatusView(
-                    statusMessage: store.statusMessage,
-                    cliUpgradeMessage: store.cliUpgradeMessage
-                )
-            }
+            content
+                .frame(maxHeight: .infinity, alignment: .top)
 
             Divider()
 
@@ -42,8 +29,38 @@ struct QuotaPopoverView: View {
         .padding(.top, 14)
         .padding(.bottom, 16)
         .frame(width: 320)
-        .frame(height: 350)
+        .frame(height: 610)
         .background(Color.clear)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if let snapshot = store.snapshot {
+            VStack(spacing: 14) {
+                ResetCreditsRow(availableCount: snapshot.availableResetCredits)
+                Divider()
+
+                VStack(spacing: 14) {
+                    QuotaRow(window: snapshot.primary)
+                    Divider()
+                    QuotaRow(window: snapshot.secondary)
+                }
+
+                Divider()
+
+                TokenUsageSectionView(
+                    snapshot: store.tokenUsageSnapshot,
+                    errorMessage: store.tokenUsageErrorMessage,
+                    isLoading: store.isLoading
+                )
+            }
+        } else {
+            LoadingStatusView(
+                statusMessage: store.statusMessage,
+                cliUpgradeMessage: store.cliUpgradeMessage
+            )
+            .frame(maxHeight: .infinity)
+        }
     }
 
     private var footerText: some View {
@@ -451,7 +468,7 @@ private struct ScaleTick: Identifiable {
     }
 }
 
-private enum QuotaPopoverColors {
+enum QuotaPopoverColors {
     static let primaryText = Color(nsColor: .labelColor)
     static let titleText = Color(nsColor: .labelColor)
     static let mutedText = Color(nsColor: .secondaryLabelColor)
