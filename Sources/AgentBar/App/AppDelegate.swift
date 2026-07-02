@@ -4,6 +4,8 @@ import SwiftUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
+    private static let statusItemWidth: CGFloat = 168
+
     private let store = QuotaStore()
     private var statusItem: NSStatusItem?
     private var menuBarView: MenuBarQuotaView?
@@ -28,14 +30,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     private func configureStatusItem() {
-        let item = NSStatusBar.system.statusItem(withLength: 84)
+        let item = NSStatusBar.system.statusItem(withLength: Self.statusItemWidth)
         statusItem = item
 
         guard let button = item.button else {
             return
         }
 
-        let view = MenuBarQuotaView(frame: NSRect(x: 0, y: 0, width: 84, height: NSStatusBar.system.thickness))
+        let view = MenuBarQuotaView(frame: NSRect(x: 0, y: 0, width: Self.statusItemWidth, height: NSStatusBar.system.thickness))
         view.target = self
         view.action = #selector(togglePopover(_:))
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -87,6 +89,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             }
             .store(in: &cancellables)
 
+        store.$modelReasonSnapshot
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.updateMenuBarTitle()
+            }
+            .store(in: &cancellables)
+
         store.$cliUpgradeAlertMessage
             .receive(on: RunLoop.main)
             .sink { [weak self] message in
@@ -96,7 +105,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     private func updateMenuBarTitle() {
-        menuBarView?.update(snapshot: store.snapshot, statusMessage: store.statusMessage)
+        menuBarView?.update(
+            snapshot: store.snapshot,
+            modelReasonSnapshot: store.modelReasonSnapshot,
+            statusMessage: store.statusMessage
+        )
     }
 
     private func showCLIUpgradeAlertIfNeeded(_ message: String?) {

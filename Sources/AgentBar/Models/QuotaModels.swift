@@ -36,6 +36,30 @@ struct TokenUsageSnapshot: Sendable {
     let lastUpdated: Date
 }
 
+struct ModelReasonEntry: Sendable {
+    let model: String
+    let reasoningEffort: String
+    let score: Double
+    let date: String?
+
+    var displayModel: String {
+        model
+            .replacingOccurrences(of: "gpt-", with: "GPT ")
+            .replacingOccurrences(of: "GPT-", with: "GPT ")
+    }
+
+    var displayReasoningEffort: String {
+        reasoningEffort.lowercased()
+    }
+}
+
+struct ModelReasonSnapshot: Sendable {
+    let selected: ModelReasonEntry
+    let entries: [ModelReasonEntry]
+    let sourceURL: URL
+    let lastUpdated: Date
+}
+
 struct CodexCLIVersion: Comparable, Sendable {
     let major: Int
     let minor: Int
