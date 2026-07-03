@@ -2,9 +2,7 @@ import Foundation
 
 enum AppVersion {
     static let shortVersion: String = {
-        versionFromEnvFile()
-            ?? Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
-            ?? "0.0.0"
+        versionFromEnvFile() ?? ""
     }()
 
     private static func versionFromEnvFile() -> String? {
@@ -26,17 +24,42 @@ enum AppVersion {
 
         let fileManager = FileManager.default
         let currentDirectory = URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
-        candidates.append(currentDirectory.appendingPathComponent("version.env"))
+        candidates.append(contentsOf: versionEnvFileCandidates(near: currentDirectory, maxDepth: 8))
 
         if let executableURL = Bundle.main.executableURL {
-            var directory = executableURL.deletingLastPathComponent()
-            for _ in 0..<5 {
-                candidates.append(directory.appendingPathComponent("version.env"))
-                directory.deleteLastPathComponent()
-            }
+            candidates.append(contentsOf: versionEnvFileCandidates(near: executableURL.deletingLastPathComponent(), maxDepth: 8))
+        }
+
+        let sourceFileDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        candidates.append(contentsOf: versionEnvFileCandidates(near: sourceFileDirectory, maxDepth: 8))
+
+        return uniqueFileURLs(candidates)
+    }
+
+    private static func versionEnvFileCandidates(near directory: URL, maxDepth: Int) -> [URL] {
+        var candidates: [URL] = []
+        var currentDirectory = directory
+
+        for _ in 0...maxDepth {
+            candidates.append(currentDirectory.appendingPathComponent("version.env"))
+            currentDirectory.deleteLastPathComponent()
         }
 
         return candidates
+    }
+
+    private static func uniqueFileURLs(_ urls: [URL]) -> [URL] {
+        var seen = Set<String>()
+
+        return urls.filter { url in
+            let path = url.standardizedFileURL.path
+            guard !seen.contains(path) else {
+                return false
+            }
+
+            seen.insert(path)
+            return true
+        }
     }
 
     private static func parseEnvFile(at url: URL) -> [String: String]? {

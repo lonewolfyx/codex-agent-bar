@@ -82,7 +82,10 @@ struct QuotaPopoverView: View {
                 }
 
                 FooterActionButton(title: I18n.current.quit, action: onQuit) {
-                    EmptyView()
+                    Text(appVersionDisplayText)
+                        .font(.system(size: 11, weight: .medium))
+                        .monospacedDigit()
+                        .lineLimit(1)
                 }
             }
             .padding(.horizontal, QuotaPopoverLayout.menuHighlightMargin)
@@ -96,6 +99,15 @@ struct QuotaPopoverView: View {
         }
 
         return store.isLoading ? I18n.current.loading : I18n.current.notRefreshed
+    }
+
+    private var appVersionDisplayText: String {
+        let version = AppVersion.shortVersion.trimmingCharacters(in: .whitespacesAndNewlines)
+        if version.lowercased().hasPrefix("v") {
+            return version
+        }
+
+        return version.isEmpty ? "" : "v\(version)"
     }
 }
 
