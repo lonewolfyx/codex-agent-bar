@@ -11,6 +11,9 @@ CONFIGURATION="${CONFIGURATION:-release}"
 DMG_VOLUME_NAME="${DMG_VOLUME_NAME:-$APP_NAME}"
 SIGN_APP="${SIGN_APP:-1}"
 CODE_SIGN_IDENTITY="${CODE_SIGN_IDENTITY:--}"
+SPARKLE_FEED_URL="${SPARKLE_FEED_URL:-https://raw.githubusercontent.com/lonewolfyx/codex-agent-bar/main/appcast.xml}"
+SPARKLE_PUBLIC_ED_KEY="${SPARKLE_PUBLIC_ED_KEY:-KUrqIsbJSH1fYUKJnDxuzKdAWmXt/Tu7JGPSCwkLGtU=}"
+SPARKLE_FRAMEWORK_PATH="${SPARKLE_FRAMEWORK_PATH:-}"
 
 ENV_VERSION_WAS_SET=0
 ENV_BUILD_NUMBER_WAS_SET=0
@@ -64,7 +67,8 @@ Options:
 
 Environment overrides:
   APP_NAME, BUNDLE_ID, VERSION, BUILD_NUMBER, CONFIGURATION, DIST_DIR,
-  DMG_VOLUME_NAME, VERSION_ENV_FILE, SIGN_APP, CODE_SIGN_IDENTITY
+  DMG_VOLUME_NAME, VERSION_ENV_FILE, SIGN_APP, CODE_SIGN_IDENTITY,
+  SPARKLE_FEED_URL, SPARKLE_PUBLIC_ED_KEY, SPARKLE_FRAMEWORK_PATH
 
 Version file:
   $VERSION_ENV_FILE
@@ -129,6 +133,7 @@ WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/AgentBar-dmg.XXXXXX")"
 APP_BUNDLE="$WORK_DIR/$APP_NAME.app"
 STAGING_DIR="$WORK_DIR/dmg-staging"
 TEMP_DMG="$WORK_DIR/$APP_NAME-temp.dmg"
+FRAMEWORKS_DIR="$APP_BUNDLE/Contents/Frameworks"
 ICONSET_DIR="$WORK_DIR/AppIcon.iconset"
 APP_ICON="$WORK_DIR/AppIcon.icns"
 ARROW_ICON_WORK="$WORK_DIR/DmgArrowIcon.png"
@@ -214,8 +219,35 @@ sign_app_bundle() {
         echo "Signing app bundle with identity: $CODE_SIGN_IDENTITY"
     fi
 
-    codesign --force --sign "$CODE_SIGN_IDENTITY" "$APP_BUNDLE"
+    codesign --force --deep --sign "$CODE_SIGN_IDENTITY" "$APP_BUNDLE"
     codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE"
+}
+
+copy_sparkle_framework() {
+    if [ -n "$SPARKLE_FRAMEWORK_PATH" ]; then
+        if [ ! -d "$SPARKLE_FRAMEWORK_PATH" ]; then
+            echo "Sparkle framework not found: $SPARKLE_FRAMEWORK_PATH" >&2
+            exit 1
+        fi
+    else
+        SPARKLE_FRAMEWORK_PATH="$(
+            find "$REPO_ROOT/.build" -path "*/Sparkle.framework" -type d 2>/dev/null \
+                | grep '/macos' \
+                | head -n 1
+        )"
+    fi
+
+    if [ -z "$SPARKLE_FRAMEWORK_PATH" ]; then
+        echo "Expected Sparkle.framework under $REPO_ROOT/.build after swift build." >&2
+        echo "Set SPARKLE_FRAMEWORK_PATH to the macOS Sparkle.framework path if SwiftPM stores it elsewhere." >&2
+        exit 1
+    fi
+
+    echo "Embedding Sparkle.framework..."
+    mkdir -p "$FRAMEWORKS_DIR"
+    rm -rf "$FRAMEWORKS_DIR/Sparkle.framework"
+    cp -R "$SPARKLE_FRAMEWORK_PATH" "$FRAMEWORKS_DIR/"
+    chmod -R u+w "$FRAMEWORKS_DIR/Sparkle.framework"
 }
 
 write_dmg_layout() {
@@ -254,9 +286,11 @@ rm -rf "$DMG_PATH"
 mkdir -p \
     "$APP_BUNDLE/Contents/MacOS" \
     "$APP_BUNDLE/Contents/Resources" \
+    "$FRAMEWORKS_DIR" \
     "$STAGING_DIR" \
     "$(dirname -- "$DMG_PATH")"
 cp "$EXECUTABLE" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+copy_sparkle_framework
 
 echo "Preparing app icon..."
 mkdir -p "$ICONSET_DIR"
@@ -307,9 +341,21 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<EOF
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>SUAutomaticallyUpdate</key>
+    <true/>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUFeedURL</key>
+    <string>$SPARKLE_FEED_URL</string>
+    <key>SUPublicEDKey</key>
+    <string>$SPARKLE_PUBLIC_ED_KEY</string>
 </dict>
 </plist>
 EOF
+
+if [ -z "$SPARKLE_PUBLIC_ED_KEY" ]; then
+    echo "Warning: SPARKLE_PUBLIC_ED_KEY is empty; automatic updates will be disabled in this build." >&2
+fi
 
 sign_app_bundle
 

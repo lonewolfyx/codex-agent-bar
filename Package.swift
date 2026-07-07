@@ -10,10 +10,22 @@ let package = Package(
     products: [
         .executable(name: "AgentBar", targets: ["AgentBar"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.9.4"),
+    ],
     targets: [
         .executableTarget(
             name: "AgentBar",
-            path: "Sources/AgentBar"
+            dependencies: [
+                .product(name: "Sparkle", package: "Sparkle"),
+            ],
+            path: "Sources/AgentBar",
+            linkerSettings: [
+                .unsafeFlags([
+                    "-Xlinker", "-rpath",
+                    "-Xlinker", "@executable_path/../Frameworks",
+                ]),
+            ]
         ),
     ]
 )
