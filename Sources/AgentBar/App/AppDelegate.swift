@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import Sparkle
 import SwiftUI
 
 @MainActor
@@ -14,10 +15,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var globalEventMonitor: Any?
     private var cancellables = Set<AnyCancellable>()
     private var lastShownCLIUpgradeAlertMessage: String?
+    private var updaterController: SPUStandardUpdaterController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         NSApp.applicationIconImage = AppIcon.image()
+        configureUpdater()
         configureStatusItem()
         configurePopover()
         bindStore()
@@ -49,6 +52,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             view.bottomAnchor.constraint(equalTo: button.bottomAnchor),
         ])
         menuBarView = view
+    }
+
+    private func configureUpdater() {
+        guard Self.hasSparkleConfiguration else {
+            return
+        }
+
+        let updaterController = SPUStandardUpdaterController(
+            startingUpdater: true,
+            updaterDelegate: nil,
+            userDriverDelegate: nil
+        )
+        self.updaterController = updaterController
+        updaterController.updater.checkForUpdatesInBackground()
     }
 
     private func configurePopover() {
@@ -213,6 +230,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             : window.convertPoint(fromScreen: NSEvent.mouseLocation)
         let pointInView = view.convert(pointInWindow, from: nil)
         return view.bounds.contains(pointInView)
+    }
+
+    private static var hasSparkleConfiguration: Bool {
+        guard
+            let infoDictionary = Bundle.main.infoDictionary,
+            let feedURL = trimmedInfoValue("SUFeedURL", in: infoDictionary),
+            let publicKey = trimmedInfoValue("SUPublicEDKey", in: infoDictionary)
+        else {
+            return false
+        }
+
+        return !feedURL.isEmpty && !publicKey.isEmpty
+    }
+
+    private static func trimmedInfoValue(_ key: String, in infoDictionary: [String: Any]) -> String? {
+        (infoDictionary[key] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 

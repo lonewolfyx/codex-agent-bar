@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0"
+    xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"
+    xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <channel>
+        <title>AgentBar Updates</title>
+        <link>https://github.com/lonewolfyx/codex-agent-bar</link>
+        <description>Appcast feed for AgentBar automatic updates.</description>
+        <language>en</language>
+    </channel>
+</rss>
