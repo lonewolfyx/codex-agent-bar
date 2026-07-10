@@ -10,11 +10,37 @@ struct QuotaWindow: Identifiable, Sendable {
     let resetsAt: Date?
 }
 
+struct RateLimitResetCredit: Identifiable, Sendable {
+    let id: String
+    let resetType: String
+    let status: String
+    let grantedAt: Date?
+    let expiresAt: Date?
+    let title: String?
+    let detailText: String?
+}
+
 struct QuotaSnapshot: Sendable {
     var primary: QuotaWindow
     var secondary: QuotaWindow
     var availableResetCredits: Int?
+    var resetCredits: [RateLimitResetCredit]?
     var lastUpdated: Date
+
+    func preservingResetCreditDetails(from previous: QuotaSnapshot?) -> QuotaSnapshot {
+        guard
+            resetCredits == nil,
+            availableResetCredits != 0,
+            previous?.availableResetCredits == availableResetCredits,
+            let previousCredits = previous?.resetCredits
+        else {
+            return self
+        }
+
+        var merged = self
+        merged.resetCredits = previousCredits
+        return merged
+    }
 }
 
 struct TokenUsageDay: Identifiable, Sendable {

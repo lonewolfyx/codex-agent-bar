@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct QuotaPopoverView: View {
@@ -6,34 +7,47 @@ struct QuotaPopoverView: View {
     let onQuit: () -> Void
 
     var body: some View {
-        VStack(spacing: 10) {
-            AccountInfoHeader(account: store.currentAccount)
+        VStack(spacing: 0) {
+            AccountInfoHeader(
+                account: store.currentAccount,
+                isRefreshing: store.isLoading,
+                onRefresh: store.refresh
+            )
                 .padding(.horizontal, QuotaPopoverLayout.horizontalPadding)
+                .padding(.bottom, 10)
             Divider()
                 .padding(.horizontal, QuotaPopoverLayout.horizontalPadding)
 
             content
                 .frame(maxHeight: .infinity, alignment: .top)
                 .padding(.horizontal, QuotaPopoverLayout.horizontalPadding)
+                .padding(.top, 4)
+                .padding(.bottom, 10)
 
             Divider()
                 .padding(.horizontal, QuotaPopoverLayout.horizontalPadding)
 
             footer
+                .padding(.top, 10)
         }
         .padding(.top, QuotaPopoverLayout.topPadding)
         .padding(.bottom, 16)
         .frame(width: 320)
-        .frame(height: 640)
+        .frame(height: QuotaPopoverLayout.popoverHeight)
         .background(Color.clear)
     }
 
     @ViewBuilder
     private var content: some View {
         if let snapshot = store.snapshot {
-            VStack(spacing: 14) {
-                ResetCreditsRow(availableCount: snapshot.availableResetCredits)
+            VStack(spacing: 0) {
+                ResetCreditsRow(
+                    availableCount: snapshot.availableResetCredits,
+                    credits: snapshot.resetCredits
+                )
                 Divider()
+                    .padding(.top, 4)
+                    .padding(.bottom, 10)
 
                 VStack(spacing: 14) {
                     QuotaRow(window: snapshot.primary)
@@ -42,6 +56,7 @@ struct QuotaPopoverView: View {
                 }
 
                 Divider()
+                    .padding(.vertical, 10)
 
                 TokenUsageSectionView(
                     snapshot: store.tokenUsageSnapshot,
@@ -112,6 +127,7 @@ struct QuotaPopoverView: View {
 }
 
 private enum QuotaPopoverLayout {
+    static let popoverHeight: CGFloat = 624
     static let topPadding: CGFloat = 22
     static let horizontalPadding: CGFloat = 18
     static let menuHighlightMargin: CGFloat = 5
@@ -165,6 +181,8 @@ private struct FooterActionButton<Trailing: View>: View {
 
 private struct AccountInfoHeader: View {
     let account: CodexAccount?
+    let isRefreshing: Bool
+    let onRefresh: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -182,6 +200,8 @@ private struct AccountInfoHeader: View {
             .layoutPriority(1)
 
             Spacer(minLength: 8)
+
+            RefreshButton(isRefreshing: isRefreshing, action: onRefresh)
 
             RoleBadge(role: displayRole)
                 .fixedSize()
@@ -214,6 +234,37 @@ private struct AccountInfoHeader: View {
     }
 }
 
+private struct RefreshButton: View {
+    let isRefreshing: Bool
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "arrow.clockwise")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(isHovering ? QuotaPopoverColors.menuSelectionText : QuotaPopoverColors.scaleText)
+                .frame(width: 22, height: 22)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .background {
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .fill(isHovering ? QuotaPopoverColors.menuSelectionBackground : Color.clear)
+        }
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            isHovering = hovering
+        }
+        .disabled(isRefreshing)
+        .opacity(isRefreshing ? 0.55 : 1)
+        .help(I18n.current.refreshNow)
+        .accessibilityLabel(I18n.current.refreshNow)
+        .animation(.easeOut(duration: 0.08), value: isHovering)
+    }
+}
+
 private struct RoleBadge: View {
     let role: String
 
@@ -242,44 +293,460 @@ private struct RoleBadge: View {
 
 private struct ResetCreditsRow: View {
     let availableCount: Int?
+    let credits: [RateLimitResetCredit]?
+
+    @State private var isHovering = false
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             Text(I18n.current.availableResetCredits)
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(QuotaPopoverColors.titleText)
+                .foregroundStyle(titleColor)
 
             Spacer(minLength: 8)
 
-            ResetCreditsBadge(text: displayCount)
+            ResetCreditsBadge(text: displayCount, isHighlighted: isHovering)
                 .fixedSize()
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(trailingColor)
         }
+        .padding(.vertical, 3)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(isHovering ? QuotaPopoverColors.menuSelectionBackground : Color.clear)
+                .padding(.horizontal, -10)
+        }
+        .contentShape(Rectangle())
+        .overlay {
+            ResetCreditsHoverMenuPresenter(
+                availableCount: availableCount,
+                credits: credits,
+                isHovering: $isHovering
+            )
+            .padding(.horizontal, -10)
+        }
+        .animation(.easeOut(duration: 0.08), value: isHovering)
     }
 
     private var displayCount: String {
         availableCount.map(String.init) ?? "--"
     }
+
+    private var titleColor: Color {
+        isHovering ? QuotaPopoverColors.menuSelectionText : QuotaPopoverColors.titleText
+    }
+
+    private var trailingColor: Color {
+        isHovering ? QuotaPopoverColors.menuSelectionText : QuotaPopoverColors.scaleText
+    }
 }
 
 private struct ResetCreditsBadge: View {
     let text: String
+    let isHighlighted: Bool
 
     var body: some View {
         Text(text)
             .font(.system(size: 11, weight: .bold, design: .rounded))
-            .foregroundStyle(QuotaPopoverColors.indigoText)
+            .foregroundStyle(isHighlighted ? QuotaPopoverColors.menuSelectionText : QuotaPopoverColors.indigoText)
             .monospacedDigit()
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
             .background {
                 Capsule()
-                    .fill(QuotaPopoverColors.indigoBackground)
+                    .fill(isHighlighted ? Color.white.opacity(0.18) : QuotaPopoverColors.indigoBackground)
             }
             .overlay {
                 Capsule()
-                    .stroke(QuotaPopoverColors.indigoBorder, lineWidth: 1)
+                    .stroke(
+                        isHighlighted ? Color.white.opacity(0.5) : QuotaPopoverColors.indigoBorder,
+                        lineWidth: 1
+                    )
             }
+    }
+}
+
+private struct ResetCreditsHoverMenuPresenter: NSViewRepresentable {
+    let availableCount: Int?
+    let credits: [RateLimitResetCredit]?
+    @Binding var isHovering: Bool
+
+    func makeNSView(context: Context) -> ResetCreditsHoverAnchorView {
+        let view = ResetCreditsHoverAnchorView()
+        view.onHoverChanged = { hovering in
+            isHovering = hovering
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: ResetCreditsHoverAnchorView, context: Context) {
+        nsView.configure(availableCount: availableCount, credits: credits)
+        nsView.onHoverChanged = { hovering in
+            if isHovering != hovering {
+                isHovering = hovering
+            }
+        }
+    }
+
+    static func dismantleNSView(_ nsView: ResetCreditsHoverAnchorView, coordinator: ()) {
+        nsView.dismissMenu()
+    }
+}
+
+private final class ResetCreditsHoverAnchorView: NSView {
+    var availableCount: Int?
+    var credits: [RateLimitResetCredit]?
+    var onHoverChanged: ((Bool) -> Void)?
+
+    private var hoverTrackingArea: NSTrackingArea?
+    private var presentedMenu: NSMenu?
+    private var pointerTrackingTimer: Timer?
+    private var pointerOutsideSince: Date?
+    private var isSchedulingPresentation = false
+    private var scheduledPresentationRequiresPointerInside = true
+    private var scheduledPresentationTracksPointer = true
+
+    override var isFlipped: Bool {
+        true
+    }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        setAccessibilityElement(true)
+        setAccessibilityRole(.button)
+        setAccessibilityLabel(I18n.current.availableResetCredits)
+    }
+
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    override var acceptsFirstResponder: Bool {
+        true
+    }
+
+    func configure(availableCount: Int?, credits: [RateLimitResetCredit]?) {
+        self.availableCount = availableCount
+        self.credits = credits
+        setAccessibilityValue(availableCount.map(String.init) ?? "--")
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+
+        if let hoverTrackingArea {
+            removeTrackingArea(hoverTrackingArea)
+        }
+
+        let trackingArea = NSTrackingArea(
+            rect: .zero,
+            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(trackingArea)
+        hoverTrackingArea = trackingArea
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        pointerOutsideSince = nil
+        onHoverChanged?(true)
+        scheduleMenuPresentation(requiresPointerInside: true, tracksPointer: true)
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        scheduleMenuPresentation(requiresPointerInside: false, tracksPointer: true)
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 36 || event.keyCode == 49 {
+            scheduleMenuPresentation(requiresPointerInside: false, tracksPointer: false)
+            return
+        }
+
+        super.keyDown(with: event)
+    }
+
+    private func scheduleMenuPresentation(requiresPointerInside: Bool, tracksPointer: Bool) {
+        guard presentedMenu == nil, !isSchedulingPresentation else {
+            return
+        }
+
+        isSchedulingPresentation = true
+        scheduledPresentationRequiresPointerInside = requiresPointerInside
+        scheduledPresentationTracksPointer = tracksPointer
+        let delay = requiresPointerInside ? 0.12 : 0
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            self?.presentMenuIfPointerIsStillInside()
+        }
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        onHoverChanged?(false)
+    }
+
+    func dismissMenu() {
+        isSchedulingPresentation = false
+        stopPointerMonitoring()
+        presentedMenu?.cancelTrackingWithoutAnimation()
+        presentedMenu = nil
+    }
+
+    private func presentMenuIfPointerIsStillInside() {
+        isSchedulingPresentation = false
+
+        guard window != nil, !scheduledPresentationRequiresPointerInside || isPointerInside else {
+            onHoverChanged?(false)
+            return
+        }
+
+        let menu = makeDetailsMenu()
+        presentedMenu = menu
+        if scheduledPresentationTracksPointer {
+            startPointerMonitoring()
+        }
+
+        _ = menu.popUp(
+            positioning: nil,
+            at: NSPoint(x: bounds.maxX - 2, y: bounds.minY),
+            in: self
+        )
+
+        stopPointerMonitoring()
+        presentedMenu = nil
+        onHoverChanged?(isPointerInside)
+    }
+
+    private func startPointerMonitoring() {
+        stopPointerMonitoring()
+        pointerOutsideSince = nil
+
+        let timer = Timer(
+            timeInterval: 0.05,
+            target: self,
+            selector: #selector(pollPointerLocation(_:)),
+            userInfo: nil,
+            repeats: true
+        )
+        pointerTrackingTimer = timer
+        RunLoop.main.add(timer, forMode: .eventTracking)
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func stopPointerMonitoring() {
+        pointerTrackingTimer?.invalidate()
+        pointerTrackingTimer = nil
+        pointerOutsideSince = nil
+    }
+
+    @objc private func pollPointerLocation(_ timer: Timer) {
+        let pointerIsInsideAnchor = isPointerInside
+        onHoverChanged?(pointerIsInsideAnchor)
+
+        if pointerIsInsideAnchor || isPointerInsidePresentedMenu {
+            pointerOutsideSince = nil
+            return
+        }
+
+        let now = Date()
+        guard let pointerOutsideSince else {
+            self.pointerOutsideSince = now
+            return
+        }
+
+        guard now.timeIntervalSince(pointerOutsideSince) >= 0.12 else {
+            return
+        }
+
+        presentedMenu?.cancelTrackingWithoutAnimation()
+    }
+
+    private var isPointerInside: Bool {
+        guard let window else {
+            return false
+        }
+
+        let pointInWindow = window.convertPoint(fromScreen: NSEvent.mouseLocation)
+        let pointInView = convert(pointInWindow, from: nil)
+        return bounds.contains(pointInView)
+    }
+
+    private var isPointerInsidePresentedMenu: Bool {
+        guard
+            let menuWindow = presentedMenu?.items
+                .compactMap({ $0.view?.window })
+                .first
+        else {
+            return false
+        }
+
+        return menuWindow.frame.contains(NSEvent.mouseLocation)
+    }
+
+    private func makeDetailsMenu() -> NSMenu {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        menu.minimumWidth = ResetCreditsMenuLayout.width
+
+        let item = NSMenuItem()
+        let rootView = ResetCreditsDetailMenuView(
+            availableCount: availableCount,
+            credits: credits
+        )
+        let hostingView = NSHostingView(rootView: rootView)
+        hostingView.frame = NSRect(
+            x: 0,
+            y: 0,
+            width: ResetCreditsMenuLayout.width,
+            height: ResetCreditsMenuLayout.height(
+                availableCount: availableCount,
+                credits: credits
+            )
+        )
+        item.view = hostingView
+        menu.addItem(item)
+
+        return menu
+    }
+}
+
+private enum ResetCreditsMenuLayout {
+    static let width: CGFloat = 210
+    static let rowHeight: CGFloat = 68
+    static let maxVisibleRows = 6
+
+    static func height(
+        availableCount: Int?,
+        credits: [RateLimitResetCredit]?
+    ) -> CGFloat {
+        let detailCount = credits?.count ?? 0
+        let expectedCount = max(availableCount ?? detailCount, detailCount)
+        let missingDetailCount = max(0, expectedCount - detailCount)
+        let rowCount = max(1, detailCount + (missingDetailCount > 0 ? 1 : 0))
+        return rowHeight * CGFloat(min(rowCount, maxVisibleRows))
+    }
+}
+
+private struct ResetCreditMenuRow: Identifiable {
+    let id: String
+    let title: String
+    let subtitle: String?
+}
+
+private struct ResetCreditsDetailMenuView: View {
+    let availableCount: Int?
+    let credits: [RateLimitResetCredit]?
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
+                    ResetCreditDetailRow(row: row)
+
+                    if index < rows.count - 1 {
+                        Divider()
+                    }
+                }
+            }
+        }
+        .frame(
+            width: ResetCreditsMenuLayout.width,
+            height: ResetCreditsMenuLayout.height(
+                availableCount: availableCount,
+                credits: credits
+            )
+        )
+        .background(Color.clear)
+    }
+
+    private var rows: [ResetCreditMenuRow] {
+        guard let credits else {
+            return [missingDetailsRow(count: availableCount)]
+        }
+
+        var rows = credits.map { credit in
+            ResetCreditMenuRow(
+                id: credit.id,
+                title: credit.title ?? I18n.current.resetCreditDefaultTitle,
+                subtitle: credit.expiresAt.map(expirationText) ?? I18n.current.resetCreditNeverExpires
+            )
+        }
+
+        let missingDetailCount = max(0, (availableCount ?? credits.count) - credits.count)
+        if missingDetailCount > 0 {
+            rows.append(missingDetailsRow(count: missingDetailCount))
+        }
+
+        if rows.isEmpty {
+            rows.append(
+                ResetCreditMenuRow(
+                    id: "no-reset-credits",
+                    title: I18n.current.noAvailableResetCredits,
+                    subtitle: nil
+                )
+            )
+        }
+
+        return rows
+    }
+
+    private func missingDetailsRow(count: Int?) -> ResetCreditMenuRow {
+        let title: String
+        let subtitle: String?
+
+        switch count {
+        case let count? where count > 0:
+            title = I18n.current.additionalResetCredits(count)
+            subtitle = I18n.current.resetCreditDetailsUnavailable
+        case 0?:
+            title = I18n.current.noAvailableResetCredits
+            subtitle = nil
+        case nil:
+            title = I18n.current.resetCreditDetailsUnavailable
+            subtitle = nil
+        default:
+            title = I18n.current.resetCreditDetailsUnavailable
+            subtitle = nil
+        }
+
+        return ResetCreditMenuRow(
+            id: "missing-reset-credit-details-\(count ?? 0)",
+            title: title,
+            subtitle: subtitle
+        )
+    }
+
+    private func expirationText(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: I18n.current.dateLocaleIdentifier)
+        formatter.dateFormat = "M/d"
+        return I18n.current.resetCreditExpiresOn(formatter.string(from: date))
+    }
+}
+
+private struct ResetCreditDetailRow: View {
+    let row: ResetCreditMenuRow
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(row.title)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(QuotaPopoverColors.primaryText)
+                .lineLimit(1)
+                .truncationMode(.tail)
+
+            if let subtitle = row.subtitle {
+                Text(subtitle)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(QuotaPopoverColors.mutedText)
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: ResetCreditsMenuLayout.rowHeight, alignment: .leading)
+        .padding(.horizontal, 16)
     }
 }
 

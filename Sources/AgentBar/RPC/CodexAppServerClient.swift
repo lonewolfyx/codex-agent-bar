@@ -17,6 +17,7 @@ final class CodexAppServerClient {
     private var nextRequestID = 1
     private var pending: [Int: Completion] = [:]
     private var initialized = false
+    private var selectedCodexPath: String?
 
     func start(completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         queue.async {
@@ -79,6 +80,7 @@ final class CodexAppServerClient {
 
     func checkMinimumResetCreditsVersion(completion: @escaping @Sendable (Result<CodexCLIVersion, Error>) -> Void) {
         queue.async {
+            self.selectedCodexPath = nil
             guard let codexPath = Self.resolveCodexCLIPath() else {
                 completion(.failure(QuotaError.codexCLINotFound))
                 return
@@ -94,6 +96,7 @@ final class CodexAppServerClient {
                     return
                 }
 
+                self.selectedCodexPath = codexPath
                 completion(.success(version))
             } catch {
                 completion(.failure(error))
@@ -102,7 +105,7 @@ final class CodexAppServerClient {
     }
 
     private func launchProcess() throws {
-        guard let codexPath = Self.resolveCodexCLIPath() else {
+        guard let codexPath = selectedCodexPath ?? Self.resolveCodexCLIPath() else {
             throw QuotaError.codexCLINotFound
         }
 
@@ -333,26 +336,7 @@ final class CodexAppServerClient {
     }
 
     private static func resolveCodexCLIPath() -> String? {
-        let fileManager = FileManager.default
-        let environmentPath = ProcessInfo.processInfo.environment["PATH"] ?? ""
-        let pathCandidates = environmentPath
-            .split(separator: ":")
-            .map { String($0) + "/codex" }
-
-        var candidates = pathCandidates + [
-            "/opt/homebrew/bin/codex",
-            "/usr/local/bin/codex",
-        ]
-
-        let home = fileManager.homeDirectoryForCurrentUser.path
-        let nvmRoot = "\(home)/.nvm/versions/node"
-        if let versions = try? fileManager.contentsOfDirectory(atPath: nvmRoot) {
-            candidates += versions
-                .sorted(by: >)
-                .map { "\(nvmRoot)/\($0)/bin/codex" }
-        }
-
-        return candidates.first { fileManager.isExecutableFile(atPath: $0) }
+        CodexCLIResolver.resolve()
     }
 
     private func prettyPrintedSanitizedJSON(_ object: Any) -> String {

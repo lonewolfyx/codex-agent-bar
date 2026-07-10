@@ -16,7 +16,7 @@ struct CodexRateLimitService {
         }
     }
 
-    private func parseRateLimitResponse(_ response: CodexAppServerClient.JSONDictionary) throws -> QuotaSnapshot {
+    func parseRateLimitResponse(_ response: CodexAppServerClient.JSONDictionary) throws -> QuotaSnapshot {
         guard let result = response["result"] as? CodexAppServerClient.JSONDictionary else {
             throw QuotaError.parsingFailed(I18n.current.missingRateLimitResult)
         }
@@ -40,10 +40,12 @@ struct CodexRateLimitService {
         }
 
         let selected = selectMenuWindows(from: windows)
+        let resetCredits = resetCreditsSummary(from: result)
         let snapshot = QuotaSnapshot(
             primary: selected.primary,
             secondary: selected.secondary,
-            availableResetCredits: resetCreditsAvailableCount(from: result),
+            availableResetCredits: resetCredits.availableCount,
+            resetCredits: resetCredits.credits,
             lastUpdated: Date()
         )
 
@@ -120,12 +122,70 @@ struct CodexRateLimitService {
         return nil
     }
 
-    private func resetCreditsAvailableCount(from result: CodexAppServerClient.JSONDictionary) -> Int? {
+    private func resetCreditsSummary(
+        from result: CodexAppServerClient.JSONDictionary
+    ) -> (availableCount: Int?, credits: [RateLimitResetCredit]?) {
         guard let resetCredits = result["rateLimitResetCredits"] as? CodexAppServerClient.JSONDictionary else {
+            return (nil, nil)
+        }
+
+        let availableCount = intValue(resetCredits["availableCount"])
+        guard let rawCredits = resetCredits["credits"], !(rawCredits is NSNull) else {
+            return (availableCount, nil)
+        }
+
+        guard let creditRows = rawCredits as? [Any] else {
+            return (availableCount, nil)
+        }
+
+        let credits = creditRows.enumerated().compactMap { index, rawCredit -> RateLimitResetCredit? in
+            guard let credit = rawCredit as? CodexAppServerClient.JSONDictionary else {
+                return nil
+            }
+
+            let grantedAt = doubleValue(credit["grantedAt"])
+                .map(Date.init(timeIntervalSince1970:))
+            let expiresAt = doubleValue(credit["expiresAt"])
+                .map(Date.init(timeIntervalSince1970:))
+            let fallbackID = "reset-credit-\(index)-\(grantedAt?.timeIntervalSince1970 ?? 0)"
+
+            return RateLimitResetCredit(
+                id: stringValue(credit["id"]) ?? fallbackID,
+                resetType: stringValue(credit["resetType"]) ?? "unknown",
+                status: stringValue(credit["status"]) ?? "unknown",
+                grantedAt: grantedAt,
+                expiresAt: expiresAt,
+                title: stringValue(credit["title"]),
+                detailText: stringValue(credit["description"])
+            )
+        }
+        .sorted { lhs, rhs in
+            switch (lhs.expiresAt, rhs.expiresAt) {
+            case let (lhsDate?, rhsDate?):
+                if lhsDate == rhsDate {
+                    return lhs.id < rhs.id
+                }
+
+                return lhsDate < rhsDate
+            case (_?, nil):
+                return true
+            case (nil, _?):
+                return false
+            case (nil, nil):
+                return lhs.id < rhs.id
+            }
+        }
+
+        return (availableCount, credits)
+    }
+
+    private func stringValue(_ value: Any?) -> String? {
+        guard let value = value as? String else {
             return nil
         }
 
-        return intValue(resetCredits["availableCount"])
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     private func doubleValue(_ value: Any?) -> Double? {
@@ -184,6 +244,7 @@ struct CodexRateLimitService {
             "primary": printableWindow(snapshot.primary, formatter: formatter),
             "secondary": printableWindow(snapshot.secondary, formatter: formatter),
             "availableResetCredits": snapshot.availableResetCredits ?? NSNull(),
+            "resetCredits": snapshot.resetCredits?.map { printableResetCredit($0, formatter: formatter) } ?? NSNull(),
             "lastUpdated": formatter.string(from: snapshot.lastUpdated),
         ]
 
@@ -201,6 +262,21 @@ struct CodexRateLimitService {
             "remainingPercent": window.remainingPercent,
             "windowDurationMins": window.windowDurationMins ?? NSNull(),
             "resetsAt": window.resetsAt.map { formatter.string(from: $0) } ?? NSNull(),
+        ]
+    }
+
+    private func printableResetCredit(
+        _ credit: RateLimitResetCredit,
+        formatter: ISO8601DateFormatter
+    ) -> [String: Any] {
+        [
+            "id": credit.id,
+            "resetType": credit.resetType,
+            "status": credit.status,
+            "grantedAt": credit.grantedAt.map { formatter.string(from: $0) } ?? NSNull(),
+            "expiresAt": credit.expiresAt.map { formatter.string(from: $0) } ?? NSNull(),
+            "title": credit.title ?? NSNull(),
+            "description": credit.detailText ?? NSNull(),
         ]
     }
 }
