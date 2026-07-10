@@ -14,6 +14,7 @@ enum I18n {
         let loading: String
         let notRefreshed: String
         let lastRefreshPrefix: String
+        let refreshNow: String
         let aboutUs: String
         let quit: String
         let currentSession: String
@@ -38,6 +39,10 @@ enum I18n {
         let missingTokenUsageResult: String
         let expectedQuotaWindows: String
         let availableResetCredits: String
+        let resetCreditDefaultTitle: String
+        let resetCreditNeverExpires: String
+        let resetCreditDetailsUnavailable: String
+        let noAvailableResetCredits: String
         let todayTokenUsage: String
         let yesterdayTokenUsage: String
         let totalTokenUsage: String
@@ -144,6 +149,24 @@ enum I18n {
             }
         }
 
+        func resetCreditExpiresOn(_ dateText: String) -> String {
+            switch I18n.language {
+            case .simplifiedChinese:
+                return "将于 \(dateText) 到期"
+            case .english:
+                return "Expires on \(dateText)"
+            }
+        }
+
+        func additionalResetCredits(_ count: Int) -> String {
+            switch I18n.language {
+            case .simplifiedChinese:
+                return "另有 \(count) 次重置"
+            case .english:
+                return "\(count) more reset\(count == 1 ? "" : "s")"
+            }
+        }
+
         func durationTitle(minutes: Int) -> String {
             switch minutes {
             case 300:
@@ -209,6 +232,7 @@ enum I18n {
         loading: "loading...",
         notRefreshed: "Not refreshed",
         lastRefreshPrefix: "Last refresh",
+        refreshNow: "Refresh now",
         aboutUs: "About us",
         quit: "Quit",
         currentSession: "Current session",
@@ -233,6 +257,10 @@ enum I18n {
         missingTokenUsageResult: "Missing token usage result.",
         expectedQuotaWindows: "Expected primary and secondary quota windows.",
         availableResetCredits: "Available resets:",
+        resetCreditDefaultTitle: "Full reset (Weekly + 5 hr)",
+        resetCreditNeverExpires: "Does not expire",
+        resetCreditDetailsUnavailable: "Details unavailable",
+        noAvailableResetCredits: "No reset credits available",
         todayTokenUsage: "Today tokens",
         yesterdayTokenUsage: "Yesterday tokens",
         totalTokenUsage: "Total tokens",
@@ -250,6 +278,7 @@ enum I18n {
         loading: "加载中...",
         notRefreshed: "尚未刷新",
         lastRefreshPrefix: "上次刷新",
+        refreshNow: "立即刷新",
         aboutUs: "关于我们",
         quit: "退出",
         currentSession: "当前会话",
@@ -274,6 +303,10 @@ enum I18n {
         missingTokenUsageResult: "缺少 token 消耗结果。",
         expectedQuotaWindows: "需要 primary 和 secondary 两个额度窗口。",
         availableResetCredits: "可用重置次数：",
+        resetCreditDefaultTitle: "完整重置（周 + 5 小时）",
+        resetCreditNeverExpires: "不会到期",
+        resetCreditDetailsUnavailable: "暂无重置详情",
+        noAvailableResetCredits: "暂无可用重置次数",
         todayTokenUsage: "今日 Token 数",
         yesterdayTokenUsage: "昨日 Token 数",
         totalTokenUsage: "累计 Token 数",

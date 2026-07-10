@@ -80,6 +80,15 @@ final class QuotaStore: ObservableObject {
         client.stop()
     }
 
+    func refresh() {
+        guard hasStarted, !isLoading else {
+            return
+        }
+
+        refreshModelReason()
+        refreshAccountAndRateLimits()
+    }
+
     private func refreshModelReason() {
         radarService.readModelReason { [weak self] result in
             Task { @MainActor in
@@ -241,7 +250,7 @@ final class QuotaStore: ObservableObject {
 
                 switch result {
                 case .success(let snapshot):
-                    self.snapshot = snapshot
+                    self.snapshot = snapshot.preservingResetCreditDetails(from: self.snapshot)
                     self.readTokenUsage(account: account)
                 case .failure(let error):
                     self.apply(error: error)
