@@ -11,6 +11,9 @@ on:
 jobs:
   release:
     runs-on: macos-latest
+    env:
+      SPARKLE_PUBLIC_ED_KEY: "YBH74wFdhN0pdRj+e2NrVcUJ448H0C/O70uv5plgjXo="
+      SPARKLE_PRIVATE_KEY: "efDHQvDteJeEgmw95eeqS3RbP6oy/XQBo632A4O5xag="
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -92,21 +95,20 @@ jobs:
           codesign --verify --deep --strict --verbose=4 "$app_path"
           codesign -dv --verbose=4 "$app_path"
 
+          bundled_public_key="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$app_path/Contents/Info.plist")"
+          if [ "$bundled_public_key" != "$SPARKLE_PUBLIC_ED_KEY" ]; then
+            echo "Bundled SUPublicEDKey does not match SPARKLE_PUBLIC_ED_KEY" >&2
+            exit 1
+          fi
+
           if ! spctl --assess --type execute --verbose=4 "$app_path"; then
             echo "::warning::Gatekeeper rejected this app because the release is ad-hoc signed and not notarized."
           fi
 
       - name: Generate Sparkle appcast
         shell: bash
-        env:
-          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
           set -euo pipefail
-
-          if [ -z "$SPARKLE_PRIVATE_KEY" ]; then
-            echo "Missing required GitHub Actions secret: SPARKLE_PRIVATE_KEY" >&2
-            exit 1
-          fi
 
           ./scripts/update-appcast.sh \
             --dmg "${{ steps.dmg.outputs.path }}" \
