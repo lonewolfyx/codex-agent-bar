@@ -9,6 +9,7 @@ APP_NAME="${APP_NAME:-AgentBar}"
 DIST_DIR="${DIST_DIR:-$REPO_ROOT/dist}"
 APPCAST_PATH="${APPCAST_PATH:-$REPO_ROOT/appcast.xml}"
 SPARKLE_GENERATE_APPCAST="${SPARKLE_GENERATE_APPCAST:-generate_appcast}"
+SPARKLE_PRIVATE_KEY="${SPARKLE_PRIVATE_KEY:-}"
 
 VERSION="1.0.0"
 BUILD_NUMBER="1"
@@ -35,7 +36,8 @@ Options:
 
 Environment overrides:
   APP_NAME, DIST_DIR, VERSION_ENV_FILE, DMG_PATH, APPCAST_PATH,
-  RELEASE_TAG, DOWNLOAD_URL_PREFIX, SPARKLE_GENERATE_APPCAST
+  RELEASE_TAG, DOWNLOAD_URL_PREFIX, SPARKLE_GENERATE_APPCAST,
+  SPARKLE_PRIVATE_KEY
 EOF
 }
 
@@ -113,9 +115,19 @@ trap cleanup EXIT HUP INT TERM
 
 cp "$DMG_PATH" "$WORK_DIR/"
 
-"$SPARKLE_GENERATE_APPCAST" \
-    --download-url-prefix "$DOWNLOAD_URL_PREFIX" \
-    "$WORK_DIR"
+if [ -n "$SPARKLE_PRIVATE_KEY" ]; then
+    # Sparkle recommends passing the private key over standard input in CI so
+    # it is not exposed in the process arguments or written to disk.
+    printf '%s' "$SPARKLE_PRIVATE_KEY" \
+        | "$SPARKLE_GENERATE_APPCAST" \
+            --ed-key-file - \
+            --download-url-prefix "$DOWNLOAD_URL_PREFIX" \
+            "$WORK_DIR"
+else
+    "$SPARKLE_GENERATE_APPCAST" \
+        --download-url-prefix "$DOWNLOAD_URL_PREFIX" \
+        "$WORK_DIR"
+fi
 
 if [ ! -f "$WORK_DIR/appcast.xml" ]; then
     echo "generate_appcast did not create appcast.xml" >&2
