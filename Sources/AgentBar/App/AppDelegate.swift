@@ -5,7 +5,7 @@ import SwiftUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
-    private static let statusItemWidth: CGFloat = 168
+    private static let statusItemWidth: CGFloat = 76
 
     private let store = QuotaStore()
     private var statusItem: NSStatusItem?
@@ -72,7 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let popover = NSPopover()
         popover.behavior = .transient
         popover.delegate = self
-        popover.contentSize = NSSize(width: 320, height: 660)
+        popover.contentSize = NSSize(width: 320, height: 520)
         popover.contentViewController = VisualEffectHostingController(
             rootView: QuotaPopoverView(
                 store: store,
@@ -106,13 +106,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             }
             .store(in: &cancellables)
 
-        store.$modelReasonSnapshot
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.updateMenuBarTitle()
-            }
-            .store(in: &cancellables)
-
         store.$cliUpgradeAlertMessage
             .receive(on: RunLoop.main)
             .sink { [weak self] message in
@@ -124,7 +117,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private func updateMenuBarTitle() {
         menuBarView?.update(
             snapshot: store.snapshot,
-            modelReasonSnapshot: store.modelReasonSnapshot,
             statusMessage: store.statusMessage
         )
     }

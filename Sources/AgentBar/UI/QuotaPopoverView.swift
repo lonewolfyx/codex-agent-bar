@@ -50,9 +50,7 @@ struct QuotaPopoverView: View {
                     .padding(.bottom, 10)
 
                 VStack(spacing: 14) {
-                    QuotaRow(window: snapshot.primary)
-                    Divider()
-                    QuotaRow(window: snapshot.secondary)
+                    QuotaRow(window: snapshot.weekly)
                 }
 
                 Divider()
@@ -127,7 +125,7 @@ struct QuotaPopoverView: View {
 }
 
 private enum QuotaPopoverLayout {
-    static let popoverHeight: CGFloat = 624
+    static let popoverHeight: CGFloat = 520
     static let topPadding: CGFloat = 22
     static let horizontalPadding: CGFloat = 18
     static let menuHighlightMargin: CGFloat = 5
@@ -868,8 +866,6 @@ struct QuotaRow: View {
 
     private var displayTitle: String {
         switch window.windowDurationMins {
-        case 300:
-            return I18n.current.currentSession
         case 10080:
             return I18n.current.recentWeek
         case let duration?:
@@ -899,10 +895,6 @@ struct QuotaRow: View {
             return I18n.current.resetTimeUnavailable
         }
 
-        if window.windowDurationMins == 300 {
-            return I18n.current.refreshAt(Self.timeFormatter().string(from: resetsAt))
-        }
-
         if window.windowDurationMins == 10080 {
             return I18n.current.refreshAt(Self.dateFormatter().string(from: resetsAt))
         }
@@ -925,13 +917,6 @@ struct QuotaRow: View {
 
     private static func twoDigit(_ value: Int) -> String {
         String(format: "%02d", value)
-    }
-
-    private static func timeFormatter() -> DateFormatter {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: I18n.current.dateLocaleIdentifier)
-        formatter.dateFormat = "HH:mm:ss"
-        return formatter
     }
 
     private static func dateFormatter() -> DateFormatter {

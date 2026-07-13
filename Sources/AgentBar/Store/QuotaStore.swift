@@ -10,16 +10,13 @@ final class QuotaStore: ObservableObject {
     @Published var isLoading = false
     @Published var cliUpgradeMessage: String?
     @Published var cliUpgradeAlertMessage: String?
-    @Published var modelReasonSnapshot: ModelReasonSnapshot?
     @Published private(set) var currentAccount: CodexAccount?
 
     private let client = CodexAppServerClient()
     private let accountService = CodexAccountService()
     private let rateLimitService = CodexRateLimitService()
     private let tokenUsageService = CodexTokenUsageService()
-    private let radarService = CodexRadarService()
     private var refreshTimer: Timer?
-    private var radarRefreshTimer: Timer?
     private var hasStarted = false
 
     init() {
@@ -43,8 +40,6 @@ final class QuotaStore: ObservableObject {
         hasStarted = true
         isLoading = true
         statusMessage = I18n.current.loadingQuota
-        refreshModelReason()
-        scheduleNextModelReasonRefresh()
         checkCodexCLIVersionThenStart()
     }
 
@@ -75,8 +70,6 @@ final class QuotaStore: ObservableObject {
     func stop() {
         refreshTimer?.invalidate()
         refreshTimer = nil
-        radarRefreshTimer?.invalidate()
-        radarRefreshTimer = nil
         client.stop()
     }
 
@@ -85,79 +78,7 @@ final class QuotaStore: ObservableObject {
             return
         }
 
-        refreshModelReason()
         refreshAccountAndRateLimits()
-    }
-
-    private func refreshModelReason() {
-        radarService.readModelReason { [weak self] result in
-            Task { @MainActor in
-                guard let self else {
-                    return
-                }
-
-                switch result {
-                case .success(let snapshot):
-                    self.modelReasonSnapshot = snapshot
-                    self.printParsedModelReason(snapshot)
-                case .failure(let error):
-                    print("[AgentBar] Codex radar refresh failed: \(error.localizedDescription)")
-                }
-            }
-        }
-    }
-
-    private func scheduleNextModelReasonRefresh() {
-        radarRefreshTimer?.invalidate()
-
-        let nextRefreshDate = nextModelReasonRefreshDate(after: Date())
-        radarRefreshTimer = Timer(fire: nextRefreshDate, interval: 0, repeats: false) { [weak self] _ in
-            Task { @MainActor in
-                guard let self else {
-                    return
-                }
-
-                self.refreshModelReason()
-                self.scheduleNextModelReasonRefresh()
-            }
-        }
-
-        if let radarRefreshTimer {
-            RunLoop.main.add(radarRefreshTimer, forMode: .common)
-        }
-    }
-
-    private func nextModelReasonRefreshDate(after date: Date) -> Date {
-        let calendar = Calendar.current
-        let refreshTimes = [(hour: 8, minute: 30), (hour: 14, minute: 30)]
-
-        for refreshTime in refreshTimes {
-            guard
-                let candidate = calendar.nextDate(
-                    after: calendar.startOfDay(for: date),
-                    matching: DateComponents(hour: refreshTime.hour, minute: refreshTime.minute),
-                    matchingPolicy: .nextTime
-                ),
-                candidate > date
-            else {
-                continue
-            }
-
-            return candidate
-        }
-
-        return calendar.nextDate(
-            after: date,
-            matching: DateComponents(hour: refreshTimes[0].hour, minute: refreshTimes[0].minute),
-            matchingPolicy: .nextTime
-        ) ?? date.addingTimeInterval(18 * 60 * 60)
-    }
-
-    private func printParsedModelReason(_ snapshot: ModelReasonSnapshot) {
-        let selected = snapshot.selected
-        print(
-            "[AgentBar] Parsed Codex radar model reason: \(selected.displayModel) \(selected.displayReasoningEffort) \(selected.score)"
-        )
     }
 
     private func refreshAccountAndRateLimits() {

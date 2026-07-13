@@ -107,11 +107,11 @@ private struct TokenUsageChartView: View {
                         }
                     }
                 }
-                .frame(height: 72)
+                .frame(height: 56)
                 .padding(.horizontal, 2)
             } else {
                 TokenUsagePlaceholderView(text: I18n.current.tokenUsageUnavailable)
-                    .frame(height: 72)
+                    .frame(height: 56)
             }
         }
         .padding(.top, 2)

@@ -17,7 +17,6 @@ enum I18n {
         let refreshNow: String
         let aboutUs: String
         let quit: String
-        let currentSession: String
         let recentWeek: String
         let resetTimeUnavailable: String
         let resetSoon: String
@@ -37,7 +36,7 @@ enum I18n {
         let missingAccountResult: String
         let missingRateLimitResult: String
         let missingTokenUsageResult: String
-        let expectedQuotaWindows: String
+        let missingWeeklyQuotaWindow: String
         let availableResetCredits: String
         let resetCreditDefaultTitle: String
         let resetCreditNeverExpires: String
@@ -169,8 +168,6 @@ enum I18n {
 
         func durationTitle(minutes: Int) -> String {
             switch minutes {
-            case 300:
-                return currentSession
             case 10080:
                 return recentWeek
             case ..<1440:
@@ -235,7 +232,6 @@ enum I18n {
         refreshNow: "Refresh now",
         aboutUs: "About us",
         quit: "Quit",
-        currentSession: "Current session",
         recentWeek: "Past 1 week",
         resetTimeUnavailable: "Reset time unavailable",
         resetSoon: "Reset soon",
@@ -255,9 +251,9 @@ enum I18n {
         missingAccountResult: "Missing account result.",
         missingRateLimitResult: "Missing rate limit result.",
         missingTokenUsageResult: "Missing token usage result.",
-        expectedQuotaWindows: "Expected primary and secondary quota windows.",
+        missingWeeklyQuotaWindow: "The weekly quota window was not returned.",
         availableResetCredits: "Available resets:",
-        resetCreditDefaultTitle: "Full reset (Weekly + 5 hr)",
+        resetCreditDefaultTitle: "Rate-limit reset",
         resetCreditNeverExpires: "Does not expire",
         resetCreditDetailsUnavailable: "Details unavailable",
         noAvailableResetCredits: "No reset credits available",
@@ -281,7 +277,6 @@ enum I18n {
         refreshNow: "立即刷新",
         aboutUs: "关于我们",
         quit: "退出",
-        currentSession: "当前会话",
         recentWeek: "近 1 周",
         resetTimeUnavailable: "刷新时间不可用",
         resetSoon: "即将刷新",
@@ -301,9 +296,9 @@ enum I18n {
         missingAccountResult: "缺少账户结果。",
         missingRateLimitResult: "缺少额度结果。",
         missingTokenUsageResult: "缺少 token 消耗结果。",
-        expectedQuotaWindows: "需要 primary 和 secondary 两个额度窗口。",
+        missingWeeklyQuotaWindow: "未返回周额度窗口。",
         availableResetCredits: "可用重置次数：",
-        resetCreditDefaultTitle: "完整重置（周 + 5 小时）",
+        resetCreditDefaultTitle: "额度重置",
         resetCreditNeverExpires: "不会到期",
         resetCreditDetailsUnavailable: "暂无重置详情",
         noAvailableResetCredits: "暂无可用重置次数",

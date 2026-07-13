@@ -35,15 +35,13 @@ struct CodexRateLimitService {
             (lhs.windowDurationMins ?? Int.max) < (rhs.windowDurationMins ?? Int.max)
         }
 
-        guard windows.count >= 2 else {
-            throw QuotaError.parsingFailed(I18n.current.expectedQuotaWindows)
+        guard let weekly = windows.first(where: { $0.windowDurationMins == 10080 }) else {
+            throw QuotaError.parsingFailed(I18n.current.missingWeeklyQuotaWindow)
         }
 
-        let selected = selectMenuWindows(from: windows)
         let resetCredits = resetCreditsSummary(from: result)
         let snapshot = QuotaSnapshot(
-            primary: selected.primary,
-            secondary: selected.secondary,
+            weekly: weekly,
             availableResetCredits: resetCredits.availableCount,
             resetCredits: resetCredits.credits,
             lastUpdated: Date()
@@ -94,16 +92,6 @@ struct CodexRateLimitService {
             seen.insert(key)
             return true
         }
-    }
-
-    private func selectMenuWindows(from windows: [QuotaWindow]) -> (primary: QuotaWindow, secondary: QuotaWindow) {
-        let fiveHour = windows.first { $0.windowDurationMins == 300 }
-        let oneWeek = windows.first { $0.windowDurationMins == 10080 }
-
-        return (
-            fiveHour ?? windows[0],
-            oneWeek ?? windows[1]
-        )
     }
 
     private func intValue(_ value: Any?) -> Int? {
@@ -210,8 +198,6 @@ struct CodexRateLimitService {
         }
 
         switch durationMins {
-        case 300:
-            return "5h"
         case 10080:
             return "1w"
         case ..<1440:
@@ -227,8 +213,6 @@ struct CodexRateLimitService {
         }
 
         switch durationMins {
-        case 300:
-            return "5h"
         case 10080:
             return "1w"
         case ..<1440:
@@ -241,8 +225,7 @@ struct CodexRateLimitService {
     private func printParsedQuota(_ snapshot: QuotaSnapshot) {
         let formatter = ISO8601DateFormatter()
         let payload: [String: Any] = [
-            "primary": printableWindow(snapshot.primary, formatter: formatter),
-            "secondary": printableWindow(snapshot.secondary, formatter: formatter),
+            "weekly": printableWindow(snapshot.weekly, formatter: formatter),
             "availableResetCredits": snapshot.availableResetCredits ?? NSNull(),
             "resetCredits": snapshot.resetCredits?.map { printableResetCredit($0, formatter: formatter) } ?? NSNull(),
             "lastUpdated": formatter.string(from: snapshot.lastUpdated),
