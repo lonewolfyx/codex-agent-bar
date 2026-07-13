@@ -96,6 +96,27 @@ jobs:
             echo "::warning::Gatekeeper rejected this app because the release is ad-hoc signed and not notarized."
           fi
 
+      - name: Generate Sparkle appcast
+        shell: bash
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "$SPARKLE_PRIVATE_KEY" ]; then
+            echo "Missing required GitHub Actions secret: SPARKLE_PRIVATE_KEY" >&2
+            exit 1
+          fi
+
+          ./scripts/update-appcast.sh \
+            --dmg "${{ steps.dmg.outputs.path }}" \
+            --output "$RUNNER_TEMP/appcast.xml" \
+            --tag "${{ steps.release.outputs.tag }}"
+
+          grep -F 'sparkle:edSignature=' "$RUNNER_TEMP/appcast.xml"
+          grep -F 'releases/download/${{ steps.release.outputs.tag }}/${{ steps.dmg.outputs.name }}' \
+            "$RUNNER_TEMP/appcast.xml"
+
       - name: Create GitHub Release
         run: npx --yes genereleaselog@latest --output false --assets "${{ steps.dmg.outputs.path }}"
         env:
@@ -110,3 +131,23 @@ jobs:
             | grep -Fx "${{ steps.dmg.outputs.name }}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish Sparkle appcast
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git fetch origin main
+          git checkout -B main origin/main
+          cp "$RUNNER_TEMP/appcast.xml" appcast.xml
+
+          if git diff --quiet -- appcast.xml; then
+            echo "appcast.xml is already current."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add appcast.xml
+          git commit -m "chore: update appcast for ${{ steps.release.outputs.tag }}"
+          git push origin HEAD:main
