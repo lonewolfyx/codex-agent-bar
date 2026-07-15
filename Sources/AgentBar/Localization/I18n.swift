@@ -48,6 +48,7 @@ enum I18n {
         let tokenUsageChartTitle: String
         let tokenUsageUnavailable: String
         let codexCLIUpgradeAlertTitle: String
+        let appUpdateReadyTitle: String
 
         func signedInAs(_ planType: String) -> String {
             switch I18n.language {
@@ -109,6 +110,15 @@ enum I18n {
                 return "当前 @openai/codex CLI 版本为 \(current)，低于最低要求 \(required)。请升级到 \(required) 或更高版本后重新启动 AgentBar。"
             case .english:
                 return "Your @openai/codex CLI version is \(current), below the required \(required). Upgrade to \(required) or later, then restart AgentBar."
+            }
+        }
+
+        func appUpdateReadyMessage(version: String) -> String {
+            switch I18n.language {
+            case .simplifiedChinese:
+                return "AgentBar \(version) 已下载完成，将在退出应用后自动安装。"
+            case .english:
+                return "AgentBar \(version) has been downloaded and will be installed automatically when the app quits."
             }
         }
 
@@ -261,7 +271,8 @@ enum I18n {
         averageWeeklyTokenUsage: "Weekly avg tokens",
         tokenUsageChartTitle: "Past 30 days",
         tokenUsageUnavailable: "Token usage unavailable",
-        codexCLIUpgradeAlertTitle: "Codex CLI update required"
+        codexCLIUpgradeAlertTitle: "Codex CLI update required",
+        appUpdateReadyTitle: "AgentBar update ready"
     )
 
     private static let simplifiedChinese = Strings(
@@ -305,6 +316,7 @@ enum I18n {
         averageWeeklyTokenUsage: "周均 Token 数",
         tokenUsageChartTitle: "近 30 天",
         tokenUsageUnavailable: "Token 消耗不可用",
-        codexCLIUpgradeAlertTitle: "需要升级 Codex CLI"
+        codexCLIUpgradeAlertTitle: "需要升级 Codex CLI",
+        appUpdateReadyTitle: "AgentBar 更新已就绪"
     )
 }
