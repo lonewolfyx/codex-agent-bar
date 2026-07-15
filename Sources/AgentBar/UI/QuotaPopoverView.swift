@@ -613,7 +613,7 @@ private final class ResetCreditsHoverAnchorView: NSView {
 
 private enum ResetCreditsMenuLayout {
     static let width: CGFloat = 210
-    static let rowHeight: CGFloat = 68
+    static let rowHeight: CGFloat = 28
     static let maxVisibleRows = 6
 
     static func height(
@@ -637,6 +637,8 @@ private struct ResetCreditMenuRow: Identifiable {
 private struct ResetCreditsDetailMenuView: View {
     let availableCount: Int?
     let credits: [RateLimitResetCredit]?
+
+    private static let fullResetTitle = "Full reset"
 
     var body: some View {
         ScrollView {
@@ -668,7 +670,7 @@ private struct ResetCreditsDetailMenuView: View {
         var rows = credits.map { credit in
             ResetCreditMenuRow(
                 id: credit.id,
-                title: credit.title ?? I18n.current.resetCreditDefaultTitle,
+                title: Self.fullResetTitle,
                 subtitle: credit.expiresAt.map(expirationText) ?? I18n.current.resetCreditNeverExpires
             )
         }
@@ -729,21 +731,25 @@ private struct ResetCreditDetailRow: View {
     let row: ResetCreditMenuRow
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
+        HStack(spacing: 8) {
             Text(row.title)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(QuotaPopoverColors.primaryText)
                 .lineLimit(1)
                 .truncationMode(.tail)
 
+            Spacer(minLength: 8)
+
             if let subtitle = row.subtitle {
                 Text(subtitle)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(QuotaPopoverColors.mutedText)
                     .lineLimit(1)
+                    .monospacedDigit()
+                    .layoutPriority(1)
             }
         }
-        .frame(maxWidth: .infinity, minHeight: ResetCreditsMenuLayout.rowHeight, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: ResetCreditsMenuLayout.rowHeight)
         .padding(.horizontal, 16)
     }
 }

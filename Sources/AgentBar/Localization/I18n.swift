@@ -38,7 +38,6 @@ enum I18n {
         let missingTokenUsageResult: String
         let missingWeeklyQuotaWindow: String
         let availableResetCredits: String
-        let resetCreditDefaultTitle: String
         let resetCreditNeverExpires: String
         let resetCreditDetailsUnavailable: String
         let noAvailableResetCredits: String
@@ -151,9 +150,9 @@ enum I18n {
         func resetCreditExpiresOn(_ dateText: String) -> String {
             switch I18n.language {
             case .simplifiedChinese:
-                return "将于 \(dateText) 到期"
+                return "\(dateText) 到期"
             case .english:
-                return "Expires on \(dateText)"
+                return "Expires \(dateText)"
             }
         }
 
@@ -253,7 +252,6 @@ enum I18n {
         missingTokenUsageResult: "Missing token usage result.",
         missingWeeklyQuotaWindow: "The weekly quota window was not returned.",
         availableResetCredits: "Available resets:",
-        resetCreditDefaultTitle: "Rate-limit reset",
         resetCreditNeverExpires: "Does not expire",
         resetCreditDetailsUnavailable: "Details unavailable",
         noAvailableResetCredits: "No reset credits available",
@@ -298,7 +296,6 @@ enum I18n {
         missingTokenUsageResult: "缺少 token 消耗结果。",
         missingWeeklyQuotaWindow: "未返回周额度窗口。",
         availableResetCredits: "可用重置次数：",
-        resetCreditDefaultTitle: "额度重置",
         resetCreditNeverExpires: "不会到期",
         resetCreditDetailsUnavailable: "暂无重置详情",
         noAvailableResetCredits: "暂无可用重置次数",
