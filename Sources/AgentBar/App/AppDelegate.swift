@@ -4,10 +4,11 @@ import Sparkle
 import SwiftUI
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, SPUUpdaterDelegate {
     private static let statusItemWidth: CGFloat = 76
 
     private let store = QuotaStore()
+    private let updateNotificationService = AppUpdateNotificationService()
     private var statusItem: NSStatusItem?
     private var menuBarView: MenuBarQuotaView?
     private var popover: NSPopover?
@@ -20,12 +21,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         NSApp.applicationIconImage = AppIcon.image()
+        removeInstalledUpdateNotification()
         configureUpdater()
         configureStatusItem()
         configurePopover()
         bindStore()
         updateMenuBarTitle()
         store.start()
+    }
+
+    private func removeInstalledUpdateNotification() {
+        guard let buildVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String else {
+            return
+        }
+
+        updateNotificationService.removeNotificationIfInstalled(buildVersion: buildVersion)
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -61,11 +71,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         let updaterController = SPUStandardUpdaterController(
             startingUpdater: true,
-            updaterDelegate: nil,
+            updaterDelegate: self,
             userDriverDelegate: nil
         )
         self.updaterController = updaterController
         updaterController.updater.checkForUpdatesInBackground()
+    }
+
+    func updater(
+        _ updater: SPUUpdater,
+        willInstallUpdateOnQuit item: SUAppcastItem,
+        immediateInstallationBlock _: @escaping () -> Void
+    ) -> Bool {
+        updateNotificationService.notifyUpdateReady(
+            displayVersion: item.displayVersionString,
+            buildVersion: item.versionString
+        )
+        return false
     }
 
     private func configurePopover() {
@@ -92,6 +114,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     private func bindStore() {
+        NotificationCenter.default.publisher(for: AppUpdateNotificationService.notificationActivated)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                NSApp.activate(ignoringOtherApps: true)
+                self?.updaterController?.checkForUpdates(nil)
+            }
+            .store(in: &cancellables)
+
         store.$snapshot
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
