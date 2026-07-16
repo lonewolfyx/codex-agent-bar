@@ -5,8 +5,6 @@ import SwiftUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, SPUUpdaterDelegate {
-    private static let statusItemWidth: CGFloat = 76
-
     private let store = QuotaStore()
     private let updateNotificationService = AppUpdateNotificationService()
     private var statusItem: NSStatusItem?
@@ -43,14 +41,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, SPU
     }
 
     private func configureStatusItem() {
-        let item = NSStatusBar.system.statusItem(withLength: Self.statusItemWidth)
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem = item
 
         guard let button = item.button else {
             return
         }
 
-        let view = MenuBarQuotaView(frame: NSRect(x: 0, y: 0, width: Self.statusItemWidth, height: NSStatusBar.system.thickness))
+        let view = MenuBarQuotaView(
+            frame: NSRect(
+                x: 0,
+                y: 0,
+                width: 0,
+                height: NSStatusBar.system.thickness
+            )
+        )
+        item.length = view.preferredWidth
         view.target = self
         view.action = #selector(togglePopover(_:))
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -145,10 +151,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, SPU
     }
 
     private func updateMenuBarTitle() {
-        menuBarView?.update(
+        guard let menuBarView else {
+            return
+        }
+
+        menuBarView.update(
             snapshot: store.snapshot,
             statusMessage: store.statusMessage
         )
+
+        let preferredWidth = menuBarView.preferredWidth
+        if statusItem?.length != preferredWidth {
+            statusItem?.length = preferredWidth
+        }
     }
 
     private func showCLIUpgradeAlertIfNeeded(_ message: String?) {
