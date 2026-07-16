@@ -1,9 +1,31 @@
 import AppKit
 
 final class MenuBarQuotaView: NSControl {
+    private enum Metrics {
+        static let horizontalPadding: CGFloat = 6
+        static let iconSize: CGFloat = 18
+        static let iconSpacing: CGFloat = 5
+        static let textSpacing: CGFloat = 5
+    }
+
     private let iconView = NSImageView()
     private let weekPrefixLabel = NSTextField(labelWithString: I18n.current.shortWeek)
     private let weekPercentLabel = NSTextField(labelWithString: "--")
+
+    var preferredWidth: CGFloat {
+        ceil(
+            Metrics.horizontalPadding * 2
+                + Metrics.iconSize
+                + Metrics.iconSpacing
+                + weekPrefixLabel.intrinsicContentSize.width
+                + Metrics.textSpacing
+                + weekPercentLabel.intrinsicContentSize.width
+        )
+    }
+
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: preferredWidth, height: NSStatusBar.system.thickness)
+    }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -18,16 +40,17 @@ final class MenuBarQuotaView: NSControl {
     func update(snapshot: QuotaSnapshot?, statusMessage: String) {
         toolTip = statusMessage
 
-        guard let snapshot else {
+        if let snapshot {
+            weekPrefixLabel.stringValue = snapshot.weekly.shortTitle
+            weekPercentLabel.stringValue = "\(Int(snapshot.weekly.remainingPercent.rounded()))%"
+            weekPercentLabel.textColor = quotaColor(forRemainingPercent: snapshot.weekly.remainingPercent)
+        } else {
             weekPrefixLabel.stringValue = I18n.current.shortWeek
             weekPercentLabel.stringValue = "--"
             weekPercentLabel.textColor = .secondaryLabelColor
-            return
         }
 
-        weekPrefixLabel.stringValue = snapshot.weekly.shortTitle
-        weekPercentLabel.stringValue = "\(Int(snapshot.weekly.remainingPercent.rounded()))%"
-        weekPercentLabel.textColor = quotaColor(forRemainingPercent: snapshot.weekly.remainingPercent)
+        invalidateIntrinsicContentSize()
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -69,13 +92,13 @@ final class MenuBarQuotaView: NSControl {
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: NSStatusBar.system.thickness),
 
-            iconView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
+            iconView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Metrics.horizontalPadding),
             iconView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            iconView.widthAnchor.constraint(equalToConstant: 18),
-            iconView.heightAnchor.constraint(equalToConstant: 18),
+            iconView.widthAnchor.constraint(equalToConstant: Metrics.iconSize),
+            iconView.heightAnchor.constraint(equalToConstant: Metrics.iconSize),
 
-            weekRow.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 5),
-            weekRow.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
+            weekRow.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: Metrics.iconSpacing),
+            weekRow.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Metrics.horizontalPadding),
             weekRow.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
     }
@@ -85,7 +108,7 @@ final class MenuBarQuotaView: NSControl {
         row.orientation = .horizontal
         row.alignment = .centerY
         row.distribution = .gravityAreas
-        row.spacing = 5
+        row.spacing = Metrics.textSpacing
         row.translatesAutoresizingMaskIntoConstraints = false
 
         return row
