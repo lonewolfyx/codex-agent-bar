@@ -18,6 +18,7 @@ enum I18n {
         let aboutUs: String
         let quit: String
         let recentWeek: String
+        let shortWeek: String
         let resetTimeUnavailable: String
         let resetSoon: String
         let refreshAtSuffix: String
@@ -242,6 +243,7 @@ enum I18n {
         aboutUs: "About us",
         quit: "Quit",
         recentWeek: "Past 1 week",
+        shortWeek: "Weekly",
         resetTimeUnavailable: "Reset time unavailable",
         resetSoon: "Reset soon",
         refreshAtSuffix: " refresh",
@@ -287,6 +289,7 @@ enum I18n {
         aboutUs: "关于我们",
         quit: "退出",
         recentWeek: "近 1 周",
+        shortWeek: "周剩",
         resetTimeUnavailable: "刷新时间不可用",
         resetSoon: "即将刷新",
         refreshAtSuffix: "刷新",

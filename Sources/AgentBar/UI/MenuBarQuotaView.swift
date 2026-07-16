@@ -2,7 +2,7 @@ import AppKit
 
 final class MenuBarQuotaView: NSControl {
     private let iconView = NSImageView()
-    private let weekPrefixLabel = NSTextField(labelWithString: "1w")
+    private let weekPrefixLabel = NSTextField(labelWithString: I18n.current.shortWeek)
     private let weekPercentLabel = NSTextField(labelWithString: "--")
 
     override init(frame frameRect: NSRect) {
@@ -19,7 +19,7 @@ final class MenuBarQuotaView: NSControl {
         toolTip = statusMessage
 
         guard let snapshot else {
-            weekPrefixLabel.stringValue = "1w"
+            weekPrefixLabel.stringValue = I18n.current.shortWeek
             weekPercentLabel.stringValue = "--"
             weekPercentLabel.textColor = .secondaryLabelColor
             return

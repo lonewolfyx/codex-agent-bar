@@ -214,7 +214,7 @@ struct CodexRateLimitService {
 
         switch durationMins {
         case 10080:
-            return "1w"
+            return I18n.current.shortWeek
         case ..<1440:
             return "\(max(1, durationMins / 60))h"
         default:
