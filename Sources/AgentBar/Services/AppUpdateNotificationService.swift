@@ -8,21 +8,26 @@ final class AppUpdateNotificationService: NSObject, UNUserNotificationCenterDele
     private static let notificationThreadIdentifier = "com.lonewolfyx.AgentBar.app-update"
     private static let lastNotifiedBuildVersionKey = "AppUpdateLastNotifiedBuildVersion"
 
-    private let notificationCenter: UNUserNotificationCenter
+    private let notificationCenter: UNUserNotificationCenter?
     private let userDefaults: UserDefaults
     private let stateLock = NSLock()
     private var inFlightBuildVersion: String?
 
     override init() {
-        let notificationCenter = UNUserNotificationCenter.current()
+        let notificationCenter = Self.isRunningFromAppBundle
+            ? UNUserNotificationCenter.current()
+            : nil
         self.notificationCenter = notificationCenter
         userDefaults = .standard
         super.init()
-        notificationCenter.delegate = self
+        notificationCenter?.delegate = self
     }
 
     func removeNotificationIfInstalled(buildVersion: String) {
-        guard lastNotifiedBuildVersion() == buildVersion else {
+        guard
+            let notificationCenter,
+            lastNotifiedBuildVersion() == buildVersion
+        else {
             return
         }
 
@@ -31,7 +36,10 @@ final class AppUpdateNotificationService: NSObject, UNUserNotificationCenterDele
     }
 
     func notifyUpdateReady(displayVersion: String, buildVersion: String) {
-        guard beginNotificationAttempt(buildVersion: buildVersion) else {
+        guard
+            let notificationCenter,
+            beginNotificationAttempt(buildVersion: buildVersion)
+        else {
             return
         }
 
@@ -60,6 +68,11 @@ final class AppUpdateNotificationService: NSObject, UNUserNotificationCenterDele
     }
 
     private func requestAuthorizationAndNotify(displayVersion: String, buildVersion: String) {
+        guard let notificationCenter else {
+            finishNotificationAttempt(buildVersion: buildVersion, succeeded: false)
+            return
+        }
+
         notificationCenter.requestAuthorization(options: [.alert, .sound]) { [weak self] granted, _ in
             guard let self else {
                 return
@@ -78,6 +91,11 @@ final class AppUpdateNotificationService: NSObject, UNUserNotificationCenterDele
     }
 
     private func deliverUpdateReadyNotification(displayVersion: String, buildVersion: String) {
+        guard let notificationCenter else {
+            finishNotificationAttempt(buildVersion: buildVersion, succeeded: false)
+            return
+        }
+
         let content = UNMutableNotificationContent()
         content.title = I18n.current.appUpdateReadyTitle
         content.body = I18n.current.appUpdateReadyMessage(version: displayVersion)
@@ -136,6 +154,10 @@ final class AppUpdateNotificationService: NSObject, UNUserNotificationCenterDele
         }
 
         return userDefaults.string(forKey: Self.lastNotifiedBuildVersionKey)
+    }
+
+    private static var isRunningFromAppBundle: Bool {
+        Bundle.main.bundleURL.pathExtension.caseInsensitiveCompare("app") == .orderedSame
     }
 
     func userNotificationCenter(
