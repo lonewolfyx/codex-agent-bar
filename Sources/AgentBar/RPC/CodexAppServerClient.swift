@@ -6,18 +6,25 @@ final class CodexAppServerClient {
 
     static let minimumResetCreditsVersion = CodexCLIVersion(major: 0, minor: 142, patch: 3)
 
+    private static let initializationTimeoutSeconds = 10
+    private static let maximumStderrBytes = 8_192
+
     var notificationHandler: ((String, JSONDictionary?) -> Void)?
 
     private let queue = DispatchQueue(label: "AgentBar.rpc")
+    private let stderrLock = NSLock()
     private var process: Process?
     private var inputPipe: Pipe?
     private var outputPipe: Pipe?
     private var errorPipe: Pipe?
     private var outputBuffer = Data()
+    private var stderrBuffer = Data()
     private var nextRequestID = 1
     private var pending: [Int: Completion] = [:]
     private var initialized = false
     private var selectedCodexPath: String?
+    private var selectedCodexVersion: CodexCLIVersion?
+    private var initializationTimeoutWorkItem: DispatchWorkItem?
 
     func start(completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
         queue.async {
@@ -55,6 +62,7 @@ final class CodexAppServerClient {
                         completion(.failure(QuotaError.initializationFailed(error.localizedDescription)))
                     }
                 }
+                self.scheduleInitializationTimeoutLocked()
             } catch {
                 self.stopLocked()
                 completion(.failure(error))
@@ -81,6 +89,7 @@ final class CodexAppServerClient {
     func checkMinimumResetCreditsVersion(completion: @escaping @Sendable (Result<CodexCLIVersion, Error>) -> Void) {
         queue.async {
             self.selectedCodexPath = nil
+            self.selectedCodexVersion = nil
             guard let codexPath = Self.resolveCodexCLIPath() else {
                 completion(.failure(QuotaError.codexCLINotFound))
                 return
@@ -97,6 +106,8 @@ final class CodexAppServerClient {
                 }
 
                 self.selectedCodexPath = codexPath
+                self.selectedCodexVersion = version
+                self.log("Selected Codex CLI \(codexPath) (\(version.displayText))")
                 completion(.success(version))
             } catch {
                 completion(.failure(error))
@@ -115,11 +126,12 @@ final class CodexAppServerClient {
         let errorPipe = Pipe()
 
         process.executableURL = URL(fileURLWithPath: codexPath)
-        process.arguments = ["-s", "read-only", "-a", "untrusted", "app-server"]
+        process.arguments = ["app-server"]
         process.environment = Self.makeProcessEnvironment(codexPath: codexPath)
         process.standardInput = inputPipe
         process.standardOutput = outputPipe
         process.standardError = errorPipe
+        clearStderrBuffer()
 
         outputPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
@@ -138,11 +150,14 @@ final class CodexAppServerClient {
 
         errorPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
-            guard !data.isEmpty, let message = String(data: data, encoding: .utf8) else {
+            guard !data.isEmpty, let client = self else {
                 return
             }
 
-            self?.log("app-server stderr: \(message.trimmingCharacters(in: .whitespacesAndNewlines))")
+            client.appendStderr(data)
+            if let message = String(data: data, encoding: .utf8) {
+                client.log("app-server stderr: \(message.trimmingCharacters(in: .whitespacesAndNewlines))")
+            }
         }
 
         process.terminationHandler = { [weak self] process in
@@ -150,9 +165,16 @@ final class CodexAppServerClient {
                 return
             }
 
+            errorPipe.fileHandleForReading.readabilityHandler = nil
+            client.appendStderr(errorPipe.fileHandleForReading.readDataToEndOfFile())
+
             client.queue.async {
                 client.log("app-server exited with status \(process.terminationStatus)")
-                client.failAllPendingLocked(QuotaError.appServerStartFailed(I18n.current.appServerExited(status: process.terminationStatus)))
+                client.cancelInitializationTimeoutLocked()
+                let message = client.appServerDiagnosticMessageLocked(
+                    summary: I18n.current.appServerExited(status: process.terminationStatus)
+                )
+                client.failAllPendingLocked(QuotaError.appServerStartFailed(message))
                 client.stopLocked()
             }
         }
@@ -163,7 +185,85 @@ final class CodexAppServerClient {
         self.inputPipe = inputPipe
         self.outputPipe = outputPipe
         self.errorPipe = errorPipe
-        log("Started codex app-server at \(codexPath)")
+        let version = selectedCodexVersion.map { " (\($0.displayText))" } ?? ""
+        log("Started codex app-server at \(codexPath)\(version)")
+    }
+
+    private func scheduleInitializationTimeoutLocked() {
+        cancelInitializationTimeoutLocked()
+
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self, !self.initialized, self.pending[0] != nil else {
+                return
+            }
+
+            self.initializationTimeoutWorkItem = nil
+            let message = self.appServerDiagnosticMessageLocked(
+                summary: I18n.current.appServerInitializationTimedOut(
+                    seconds: Self.initializationTimeoutSeconds
+                )
+            )
+            self.failAllPendingLocked(QuotaError.appServerStartFailed(message))
+            self.stopLocked()
+        }
+
+        initializationTimeoutWorkItem = workItem
+        queue.asyncAfter(
+            deadline: .now() + .seconds(Self.initializationTimeoutSeconds),
+            execute: workItem
+        )
+    }
+
+    private func cancelInitializationTimeoutLocked() {
+        initializationTimeoutWorkItem?.cancel()
+        initializationTimeoutWorkItem = nil
+    }
+
+    private func appendStderr(_ data: Data) {
+        guard !data.isEmpty else {
+            return
+        }
+
+        stderrLock.lock()
+        defer { stderrLock.unlock() }
+
+        let remainingCapacity = Self.maximumStderrBytes - stderrBuffer.count
+        guard remainingCapacity > 0 else {
+            return
+        }
+
+        stderrBuffer.append(data.prefix(remainingCapacity))
+    }
+
+    private func clearStderrBuffer() {
+        stderrLock.lock()
+        stderrBuffer.removeAll(keepingCapacity: true)
+        stderrLock.unlock()
+    }
+
+    private func capturedStderr() -> String {
+        stderrLock.lock()
+        let data = stderrBuffer
+        stderrLock.unlock()
+
+        return String(decoding: data, as: UTF8.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func appServerDiagnosticMessageLocked(summary: String) -> String {
+        var lines = [summary]
+
+        if let selectedCodexPath {
+            let version = selectedCodexVersion.map { " (\($0.displayText))" } ?? ""
+            lines.append("Codex CLI: \(selectedCodexPath)\(version)")
+        }
+
+        let stderr = capturedStderr()
+        if !stderr.isEmpty {
+            lines.append(stderr)
+        }
+
+        return lines.joined(separator: "\n")
     }
 
     private static func makeProcessEnvironment(codexPath: String) -> [String: String] {
@@ -259,6 +359,10 @@ final class CodexAppServerClient {
                     return
                 }
 
+                if id == 0 {
+                    cancelInitializationTimeoutLocked()
+                }
+
                 if let errorObject = message["error"] as? JSONDictionary {
                     completion(.failure(QuotaError.rpcError(rpcErrorMessage(errorObject))))
                 } else {
@@ -294,6 +398,7 @@ final class CodexAppServerClient {
 
     private func stopLocked() {
         initialized = false
+        cancelInitializationTimeoutLocked()
         outputPipe?.fileHandleForReading.readabilityHandler = nil
         errorPipe?.fileHandleForReading.readabilityHandler = nil
         inputPipe = nil
@@ -306,6 +411,8 @@ final class CodexAppServerClient {
         }
 
         process = nil
+        outputBuffer.removeAll(keepingCapacity: true)
+        clearStderrBuffer()
     }
 
     private static func readCodexCLIVersion(codexPath: String) throws -> CodexCLIVersion {
