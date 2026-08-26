@@ -21,6 +21,7 @@ struct RateLimitResetCredit: Identifiable, Sendable {
 }
 
 struct QuotaSnapshot: Sendable {
+    var fiveHour: QuotaWindow?
     var weekly: QuotaWindow
     var availableResetCredits: Int?
     var resetCredits: [RateLimitResetCredit]?
@@ -113,6 +114,12 @@ struct CodexAccount: Sendable {
     let email: String?
     let planType: String?
     let requiresOpenaiAuth: Bool
+
+    var isProPlan: Bool {
+        planType?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased() == "pro"
+    }
 }
 
 enum QuotaError: LocalizedError, Sendable {

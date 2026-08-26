@@ -39,8 +39,10 @@ struct CodexRateLimitService {
             throw QuotaError.parsingFailed(I18n.current.missingWeeklyQuotaWindow)
         }
 
+        let fiveHour = windows.first(where: { $0.windowDurationMins == 300 })
         let resetCredits = resetCreditsSummary(from: result)
         let snapshot = QuotaSnapshot(
+            fiveHour: fiveHour,
             weekly: weekly,
             availableResetCredits: resetCredits.availableCount,
             resetCredits: resetCredits.credits,
@@ -225,6 +227,7 @@ struct CodexRateLimitService {
     private func printParsedQuota(_ snapshot: QuotaSnapshot) {
         let formatter = ISO8601DateFormatter()
         let payload: [String: Any] = [
+            "fiveHour": snapshot.fiveHour.map { printableWindow($0, formatter: formatter) } ?? NSNull(),
             "weekly": printableWindow(snapshot.weekly, formatter: formatter),
             "availableResetCredits": snapshot.availableResetCredits ?? NSNull(),
             "resetCredits": snapshot.resetCredits?.map { printableResetCredit($0, formatter: formatter) } ?? NSNull(),

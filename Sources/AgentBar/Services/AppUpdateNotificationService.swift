@@ -1,5 +1,5 @@
 import Foundation
-import UserNotifications
+@preconcurrency import UserNotifications
 
 final class AppUpdateNotificationService: NSObject, UNUserNotificationCenterDelegate, @unchecked Sendable {
     static let notificationActivated = Notification.Name("AppUpdateNotificationActivated")
@@ -26,7 +26,8 @@ final class AppUpdateNotificationService: NSObject, UNUserNotificationCenterDele
     func removeNotificationIfInstalled(buildVersion: String) {
         guard
             let notificationCenter,
-            lastNotifiedBuildVersion() == buildVersion
+            let notifiedBuildVersion = lastNotifiedBuildVersion(),
+            buildVersion.compare(notifiedBuildVersion, options: .numeric) != .orderedAscending
         else {
             return
         }
@@ -35,7 +36,7 @@ final class AppUpdateNotificationService: NSObject, UNUserNotificationCenterDele
         notificationCenter.removePendingNotificationRequests(withIdentifiers: [Self.notificationIdentifier])
     }
 
-    func notifyUpdateReady(displayVersion: String, buildVersion: String) {
+    func notifyUpdateAvailable(displayVersion: String, buildVersion: String) {
         guard
             let notificationCenter,
             beginNotificationAttempt(buildVersion: buildVersion)
@@ -50,7 +51,7 @@ final class AppUpdateNotificationService: NSObject, UNUserNotificationCenterDele
 
             switch settings.authorizationStatus {
             case .authorized, .provisional:
-                self.deliverUpdateReadyNotification(
+                self.deliverUpdateAvailableNotification(
                     displayVersion: displayVersion,
                     buildVersion: buildVersion
                 )
@@ -83,22 +84,22 @@ final class AppUpdateNotificationService: NSObject, UNUserNotificationCenterDele
                 return
             }
 
-            self.deliverUpdateReadyNotification(
+            self.deliverUpdateAvailableNotification(
                 displayVersion: displayVersion,
                 buildVersion: buildVersion
             )
         }
     }
 
-    private func deliverUpdateReadyNotification(displayVersion: String, buildVersion: String) {
+    private func deliverUpdateAvailableNotification(displayVersion: String, buildVersion: String) {
         guard let notificationCenter else {
             finishNotificationAttempt(buildVersion: buildVersion, succeeded: false)
             return
         }
 
         let content = UNMutableNotificationContent()
-        content.title = I18n.current.appUpdateReadyTitle
-        content.body = I18n.current.appUpdateReadyMessage(version: displayVersion)
+        content.title = I18n.current.appUpdateAvailableTitle
+        content.body = I18n.current.appUpdateAvailableMessage(version: displayVersion)
         content.sound = .default
         content.threadIdentifier = Self.notificationThreadIdentifier
 

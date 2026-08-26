@@ -16,6 +16,7 @@ Codex Agent Bar is a lightweight macOS menu bar app for monitoring your Codex qu
 - Uses color-coded quota status to make low remaining usage easy to notice.
 - Provides a compact popover with quota progress, reset times, last updated time, and a quit action.
 - Refreshes quota data automatically every 30 seconds.
+- Checks for AgentBar updates on launch and hourly while running, with a manual check available from the version in the popover footer.
 - Runs as a menu bar accessory app without appearing in the Dock.
 
 [LICENSE](LICENSE) &copy; [lonewolfyx](https://github.com/lonewolfyx)

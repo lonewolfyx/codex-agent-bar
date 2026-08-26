@@ -9,17 +9,28 @@ final class MenuBarQuotaView: NSControl {
     }
 
     private let iconView = NSImageView()
+    private let fiveHourPrefixLabel = NSTextField(labelWithString: "5h")
+    private let fiveHourPercentLabel = NSTextField(labelWithString: "--")
     private let weekPrefixLabel = NSTextField(labelWithString: I18n.current.shortWeek)
     private let weekPercentLabel = NSTextField(labelWithString: "--")
+    private let quotaStack = NSStackView()
+    private var fiveHourRow: NSStackView?
+    private var displaysFiveHourQuota = false
 
     var preferredWidth: CGFloat {
-        ceil(
+        let fiveHourWidth = fiveHourPrefixLabel.intrinsicContentSize.width
+            + Metrics.textSpacing
+            + fiveHourPercentLabel.intrinsicContentSize.width
+        let weekWidth = weekPrefixLabel.intrinsicContentSize.width
+            + Metrics.textSpacing
+            + weekPercentLabel.intrinsicContentSize.width
+        let quotaWidth = displaysFiveHourQuota ? max(fiveHourWidth, weekWidth) : weekWidth
+
+        return ceil(
             Metrics.horizontalPadding * 2
                 + Metrics.iconSize
                 + Metrics.iconSpacing
-                + weekPrefixLabel.intrinsicContentSize.width
-                + Metrics.textSpacing
-                + weekPercentLabel.intrinsicContentSize.width
+                + quotaWidth
         )
     }
 
@@ -37,14 +48,24 @@ final class MenuBarQuotaView: NSControl {
         setup()
     }
 
-    func update(snapshot: QuotaSnapshot?, statusMessage: String) {
+    func update(snapshot: QuotaSnapshot?, account: CodexAccount?, statusMessage: String) {
         toolTip = statusMessage
+        displaysFiveHourQuota = account != nil && account?.isProPlan != true
+        fiveHourRow?.isHidden = !displaysFiveHourQuota
 
         if let snapshot {
+            fiveHourPrefixLabel.stringValue = snapshot.fiveHour?.shortTitle ?? "5h"
+            fiveHourPercentLabel.stringValue = snapshot.fiveHour
+                .map { "\(Int($0.remainingPercent.rounded()))%" } ?? "--"
+            fiveHourPercentLabel.textColor = snapshot.fiveHour
+                .map { quotaColor(forRemainingPercent: $0.remainingPercent) } ?? .secondaryLabelColor
             weekPrefixLabel.stringValue = snapshot.weekly.shortTitle
             weekPercentLabel.stringValue = "\(Int(snapshot.weekly.remainingPercent.rounded()))%"
             weekPercentLabel.textColor = quotaColor(forRemainingPercent: snapshot.weekly.remainingPercent)
         } else {
+            fiveHourPrefixLabel.stringValue = "5h"
+            fiveHourPercentLabel.stringValue = "--"
+            fiveHourPercentLabel.textColor = .secondaryLabelColor
             weekPrefixLabel.stringValue = I18n.current.shortWeek
             weekPercentLabel.stringValue = "--"
             weekPercentLabel.textColor = .secondaryLabelColor
@@ -60,7 +81,7 @@ final class MenuBarQuotaView: NSControl {
     private func setup() {
         wantsLayer = true
         toolTip = I18n.current.codexQuota
-        let defaultMenuBarFont = NSFont.menuBarFont(ofSize: 0)
+        let quotaFont = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .bold)
 
         if let image = AppIcon.menuBarImage() {
             iconView.image = image
@@ -73,21 +94,38 @@ final class MenuBarQuotaView: NSControl {
         iconView.imageScaling = .scaleProportionallyUpOrDown
         iconView.translatesAutoresizingMaskIntoConstraints = false
 
-        [weekPrefixLabel, weekPercentLabel].forEach { label in
-            label.font = defaultMenuBarFont
+        [fiveHourPrefixLabel, fiveHourPercentLabel, weekPrefixLabel, weekPercentLabel].forEach { label in
+            label.font = quotaFont
             label.alignment = .left
             label.lineBreakMode = .byClipping
             label.setContentCompressionResistancePriority(.required, for: .horizontal)
             label.translatesAutoresizingMaskIntoConstraints = false
         }
 
+        fiveHourPrefixLabel.textColor = .labelColor
         weekPrefixLabel.textColor = .labelColor
+        fiveHourPercentLabel.textColor = .secondaryLabelColor
         weekPercentLabel.textColor = .secondaryLabelColor
 
+        let fiveHourRow = makeTextRow(prefix: fiveHourPrefixLabel, percent: fiveHourPercentLabel)
+        self.fiveHourRow = fiveHourRow
         let weekRow = makeTextRow(prefix: weekPrefixLabel, percent: weekPercentLabel)
 
+        quotaStack.orientation = .vertical
+        quotaStack.alignment = .leading
+        quotaStack.distribution = .fillEqually
+        quotaStack.spacing = -1
+        quotaStack.translatesAutoresizingMaskIntoConstraints = false
+        quotaStack.addArrangedSubview(fiveHourRow)
+        quotaStack.addArrangedSubview(weekRow)
+
+        NSLayoutConstraint.activate([
+            fiveHourRow.widthAnchor.constraint(equalTo: quotaStack.widthAnchor),
+            weekRow.widthAnchor.constraint(equalTo: quotaStack.widthAnchor),
+        ])
+
         addSubview(iconView)
-        addSubview(weekRow)
+        addSubview(quotaStack)
 
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: NSStatusBar.system.thickness),
@@ -97,19 +135,29 @@ final class MenuBarQuotaView: NSControl {
             iconView.widthAnchor.constraint(equalToConstant: Metrics.iconSize),
             iconView.heightAnchor.constraint(equalToConstant: Metrics.iconSize),
 
-            weekRow.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: Metrics.iconSpacing),
-            weekRow.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Metrics.horizontalPadding),
-            weekRow.centerYAnchor.constraint(equalTo: centerYAnchor),
+            quotaStack.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: Metrics.iconSpacing),
+            quotaStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Metrics.horizontalPadding),
+            quotaStack.centerYAnchor.constraint(equalTo: centerYAnchor),
+            quotaStack.heightAnchor.constraint(equalToConstant: 24),
         ])
     }
 
     private func makeTextRow(prefix: NSTextField, percent: NSTextField) -> NSStackView {
-        let row = NSStackView(views: [prefix, percent])
+        let spacer = NSView()
+        spacer.translatesAutoresizingMaskIntoConstraints = false
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        spacer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        percent.alignment = .right
+
+        let row = NSStackView(views: [prefix, spacer, percent])
         row.orientation = .horizontal
         row.alignment = .centerY
-        row.distribution = .gravityAreas
-        row.spacing = Metrics.textSpacing
+        row.distribution = .fill
+        row.spacing = 0
         row.translatesAutoresizingMaskIntoConstraints = false
+
+        spacer.widthAnchor.constraint(greaterThanOrEqualToConstant: Metrics.textSpacing).isActive = true
 
         return row
     }

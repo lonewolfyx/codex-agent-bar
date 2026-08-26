@@ -12,7 +12,8 @@ DMG_VOLUME_NAME="${DMG_VOLUME_NAME:-$APP_NAME}"
 SIGN_APP="${SIGN_APP:-1}"
 CODE_SIGN_IDENTITY="${CODE_SIGN_IDENTITY:--}"
 SPARKLE_FEED_URL="${SPARKLE_FEED_URL:-https://raw.githubusercontent.com/lonewolfyx/codex-agent-bar/main/appcast.xml}"
-SPARKLE_PUBLIC_ED_KEY="${SPARKLE_PUBLIC_ED_KEY:-KUrqIsbJSH1fYUKJnDxuzKdAWmXt/Tu7JGPSCwkLGtU=}"
+SPARKLE_PUBLIC_ED_KEY="${SPARKLE_PUBLIC_ED_KEY:-YBH74wFdhN0pdRj+e2NrVcUJ448H0C/O70uv5plgjXo=}"
+SPARKLE_CHECK_INTERVAL="${SPARKLE_CHECK_INTERVAL:-3600}"
 SPARKLE_FRAMEWORK_PATH="${SPARKLE_FRAMEWORK_PATH:-}"
 
 ENV_VERSION_WAS_SET=0
@@ -68,7 +69,8 @@ Options:
 Environment overrides:
   APP_NAME, BUNDLE_ID, VERSION, BUILD_NUMBER, CONFIGURATION, DIST_DIR,
   DMG_VOLUME_NAME, VERSION_ENV_FILE, SIGN_APP, CODE_SIGN_IDENTITY,
-  SPARKLE_FEED_URL, SPARKLE_PUBLIC_ED_KEY, SPARKLE_FRAMEWORK_PATH
+  SPARKLE_FEED_URL, SPARKLE_PUBLIC_ED_KEY, SPARKLE_CHECK_INTERVAL,
+  SPARKLE_FRAMEWORK_PATH
 
 Version file:
   $VERSION_ENV_FILE
@@ -121,6 +123,18 @@ while [ "$#" -gt 0 ]; do
             ;;
     esac
 done
+
+case "$SPARKLE_CHECK_INTERVAL" in
+    ''|*[!0-9]*)
+        echo "SPARKLE_CHECK_INTERVAL must be an integer number of seconds." >&2
+        exit 1
+        ;;
+esac
+
+if [ "$SPARKLE_CHECK_INTERVAL" -lt 3600 ]; then
+    echo "SPARKLE_CHECK_INTERVAL must be at least 3600 seconds." >&2
+    exit 1
+fi
 
 EXECUTABLE="$BUILD_DIR/$APP_NAME"
 DMG_ARROW_NAME="      "
@@ -345,6 +359,8 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<EOF
     <true/>
     <key>SUEnableAutomaticChecks</key>
     <true/>
+    <key>SUScheduledCheckInterval</key>
+    <integer>$SPARKLE_CHECK_INTERVAL</integer>
     <key>SUFeedURL</key>
     <string>$SPARKLE_FEED_URL</string>
     <key>SUPublicEDKey</key>

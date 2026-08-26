@@ -1,12 +1,11 @@
 import AppKit
 import Combine
-import Sparkle
 import SwiftUI
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, SPUUpdaterDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private let store = QuotaStore()
-    private let updateNotificationService = AppUpdateNotificationService()
+    private let updateCoordinator = AppUpdateCoordinator()
     private var statusItem: NSStatusItem?
     private var menuBarView: MenuBarQuotaView?
     private var popover: NSPopover?
@@ -14,26 +13,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, SPU
     private var globalEventMonitor: Any?
     private var cancellables = Set<AnyCancellable>()
     private var lastShownCLIUpgradeAlertMessage: String?
-    private var updaterController: SPUStandardUpdaterController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         NSApp.applicationIconImage = AppIcon.image()
-        removeInstalledUpdateNotification()
-        configureUpdater()
+        updateCoordinator.start()
         configureStatusItem()
         configurePopover()
         bindStore()
         updateMenuBarTitle()
         store.start()
-    }
-
-    private func removeInstalledUpdateNotification() {
-        guard let buildVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String else {
-            return
-        }
-
-        updateNotificationService.removeNotificationIfInstalled(buildVersion: buildVersion)
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -70,32 +59,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, SPU
         menuBarView = view
     }
 
-    private func configureUpdater() {
-        guard Self.hasSparkleConfiguration else {
-            return
-        }
-
-        let updaterController = SPUStandardUpdaterController(
-            startingUpdater: true,
-            updaterDelegate: self,
-            userDriverDelegate: nil
-        )
-        self.updaterController = updaterController
-        updaterController.updater.checkForUpdatesInBackground()
-    }
-
-    func updater(
-        _ updater: SPUUpdater,
-        willInstallUpdateOnQuit item: SUAppcastItem,
-        immediateInstallationBlock _: @escaping () -> Void
-    ) -> Bool {
-        updateNotificationService.notifyUpdateReady(
-            displayVersion: item.displayVersionString,
-            buildVersion: item.versionString
-        )
-        return false
-    }
-
     private func configurePopover() {
         let popover = NSPopover()
         popover.behavior = .transient
@@ -104,6 +67,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, SPU
         popover.contentViewController = VisualEffectHostingController(
             rootView: QuotaPopoverView(
                 store: store,
+                updateCoordinator: updateCoordinator,
                 onAbout: {
                     guard let url = URL(string: "http://github.com/lonewolfyx/codex-agent-bar") else {
                         return
@@ -124,7 +88,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, SPU
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 NSApp.activate(ignoringOtherApps: true)
-                self?.updaterController?.checkForUpdates(nil)
+                self?.updateCoordinator.presentCurrentUpdate()
             }
             .store(in: &cancellables)
 
@@ -139,6 +103,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, SPU
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.updateMenuBarTitle()
+            }
+            .store(in: &cancellables)
+
+        store.$currentAccount
+            .receive(on: RunLoop.main)
+            .sink { [weak self] account in
+                self?.updateMenuBarTitle()
+                let usesCompactQuotaLayout = account == nil || account?.isProPlan == true
+                self?.popover?.contentSize.height = usesCompactQuotaLayout ? 520 : 624
             }
             .store(in: &cancellables)
 
@@ -157,6 +130,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, SPU
 
         menuBarView.update(
             snapshot: store.snapshot,
+            account: store.currentAccount,
             statusMessage: store.statusMessage
         )
 
@@ -269,21 +243,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, SPU
         return view.bounds.contains(pointInView)
     }
 
-    private static var hasSparkleConfiguration: Bool {
-        guard
-            let infoDictionary = Bundle.main.infoDictionary,
-            let feedURL = trimmedInfoValue("SUFeedURL", in: infoDictionary),
-            let publicKey = trimmedInfoValue("SUPublicEDKey", in: infoDictionary)
-        else {
-            return false
-        }
-
-        return !feedURL.isEmpty && !publicKey.isEmpty
-    }
-
-    private static func trimmedInfoValue(_ key: String, in infoDictionary: [String: Any]) -> String? {
-        (infoDictionary[key] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
 }
 
 private final class VisualEffectHostingController<Content: View>: NSViewController {

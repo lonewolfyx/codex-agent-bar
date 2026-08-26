@@ -17,6 +17,14 @@ enum I18n {
         let refreshNow: String
         let aboutUs: String
         let quit: String
+        let checkForUpdates: String
+        let checkingForUpdates: String
+        let updateCheckUpToDate: String
+        let updateCheckFailed: String
+        let updateAvailable: String
+        let downloadingUpdate: String
+        let updateDownloaded: String
+        let installUpdate: String
         let recentWeek: String
         let shortWeek: String
         let resetTimeUnavailable: String
@@ -49,7 +57,7 @@ enum I18n {
         let tokenUsageChartTitle: String
         let tokenUsageUnavailable: String
         let codexCLIUpgradeAlertTitle: String
-        let appUpdateReadyTitle: String
+        let appUpdateAvailableTitle: String
 
         func signedInAs(_ planType: String) -> String {
             switch I18n.language {
@@ -114,12 +122,12 @@ enum I18n {
             }
         }
 
-        func appUpdateReadyMessage(version: String) -> String {
+        func appUpdateAvailableMessage(version: String) -> String {
             switch I18n.language {
             case .simplifiedChinese:
-                return "AgentBar \(version) 已下载完成，将在退出应用后自动安装。"
+                return "发现 AgentBar \(version)，点击查看并更新。"
             case .english:
-                return "AgentBar \(version) has been downloaded and will be installed automatically when the app quits."
+                return "AgentBar \(version) is available. Click to review and update."
             }
         }
 
@@ -138,6 +146,15 @@ enum I18n {
                 return "进程已退出，状态码 \(status)。"
             case .english:
                 return "Process exited with status \(status)."
+            }
+        }
+
+        func appServerInitializationTimedOut(seconds: Int) -> String {
+            switch I18n.language {
+            case .simplifiedChinese:
+                return "等待 app-server 初始化超过 \(seconds) 秒。"
+            case .english:
+                return "Timed out waiting \(seconds) seconds for app-server initialization."
             }
         }
 
@@ -242,6 +259,14 @@ enum I18n {
         refreshNow: "Refresh now",
         aboutUs: "About us",
         quit: "Quit",
+        checkForUpdates: "Check for updates",
+        checkingForUpdates: "Checking...",
+        updateCheckUpToDate: "Up to date",
+        updateCheckFailed: "Check failed",
+        updateAvailable: "Update",
+        downloadingUpdate: "Downloading...",
+        updateDownloaded: "Downloaded",
+        installUpdate: "Install update",
         recentWeek: "Past 1 week",
         shortWeek: "Weekly",
         resetTimeUnavailable: "Reset time unavailable",
@@ -274,7 +299,7 @@ enum I18n {
         tokenUsageChartTitle: "Past 30 days",
         tokenUsageUnavailable: "Token usage unavailable",
         codexCLIUpgradeAlertTitle: "Codex CLI update required",
-        appUpdateReadyTitle: "AgentBar update ready"
+        appUpdateAvailableTitle: "AgentBar update available"
     )
 
     private static let simplifiedChinese = Strings(
@@ -288,6 +313,14 @@ enum I18n {
         refreshNow: "立即刷新",
         aboutUs: "关于我们",
         quit: "退出",
+        checkForUpdates: "检查更新",
+        checkingForUpdates: "正在检查…",
+        updateCheckUpToDate: "已是最新版本",
+        updateCheckFailed: "检查失败",
+        updateAvailable: "可更新",
+        downloadingUpdate: "正在下载…",
+        updateDownloaded: "已下载",
+        installUpdate: "安装更新",
         recentWeek: "近 1 周",
         shortWeek: "周剩",
         resetTimeUnavailable: "刷新时间不可用",
@@ -320,6 +353,6 @@ enum I18n {
         tokenUsageChartTitle: "近 30 天",
         tokenUsageUnavailable: "Token 消耗不可用",
         codexCLIUpgradeAlertTitle: "需要升级 Codex CLI",
-        appUpdateReadyTitle: "AgentBar 更新已就绪"
+        appUpdateAvailableTitle: "AgentBar 有新版本"
     )
 }

@@ -101,6 +101,12 @@ jobs:
             exit 1
           fi
 
+          bundled_check_interval="$(/usr/libexec/PlistBuddy -c 'Print :SUScheduledCheckInterval' "$app_path/Contents/Info.plist")"
+          if [ "$bundled_check_interval" != "${SPARKLE_CHECK_INTERVAL:-3600}" ]; then
+            echo "Bundled SUScheduledCheckInterval is not the expected value" >&2
+            exit 1
+          fi
+
           if ! spctl --assess --type execute --verbose=4 "$app_path"; then
             echo "::warning::Gatekeeper rejected this app because the release is ad-hoc signed and not notarized."
           fi

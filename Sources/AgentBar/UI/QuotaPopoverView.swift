@@ -3,6 +3,7 @@ import SwiftUI
 
 struct QuotaPopoverView: View {
     @ObservedObject var store: QuotaStore
+    @ObservedObject var updateCoordinator: AppUpdateCoordinator
     let onAbout: () -> Void
     let onQuit: () -> Void
 
@@ -33,7 +34,7 @@ struct QuotaPopoverView: View {
         .padding(.top, QuotaPopoverLayout.topPadding)
         .padding(.bottom, 16)
         .frame(width: 320)
-        .frame(height: QuotaPopoverLayout.popoverHeight)
+        .frame(height: popoverHeight)
         .background(Color.clear)
     }
 
@@ -50,6 +51,10 @@ struct QuotaPopoverView: View {
                     .padding(.bottom, 10)
 
                 VStack(spacing: 14) {
+                    if displaysFiveHourQuota, let fiveHour = snapshot.fiveHour {
+                        QuotaRow(window: fiveHour)
+                        Divider()
+                    }
                     QuotaRow(window: snapshot.weekly)
                 }
 
@@ -94,12 +99,13 @@ struct QuotaPopoverView: View {
                         .font(.system(size: 10, weight: .semibold))
                 }
 
-                FooterActionButton(title: I18n.current.quit, action: onQuit) {
-                    Text(appVersionDisplayText)
-                        .font(.system(size: 11, weight: .medium))
-                        .monospacedDigit()
-                        .lineLimit(1)
-                }
+                FooterSplitActionRow(
+                    currentVersion: appVersionDisplayText,
+                    updateState: updateCoordinator.state,
+                    isUpdateActionEnabled: updateCoordinator.canPerformUserInitiatedCheck,
+                    onQuit: onQuit,
+                    onCheckForUpdates: updateCoordinator.checkForUpdates
+                )
             }
             .padding(.horizontal, QuotaPopoverLayout.menuHighlightMargin)
         }
@@ -122,10 +128,19 @@ struct QuotaPopoverView: View {
 
         return version.isEmpty ? "" : "v\(version)"
     }
+
+    private var displaysFiveHourQuota: Bool {
+        store.currentAccount != nil && store.currentAccount?.isProPlan != true
+    }
+
+    private var popoverHeight: CGFloat {
+        displaysFiveHourQuota ? QuotaPopoverLayout.expandedHeight : QuotaPopoverLayout.compactHeight
+    }
 }
 
 private enum QuotaPopoverLayout {
-    static let popoverHeight: CGFloat = 520
+    static let compactHeight: CGFloat = 520
+    static let expandedHeight: CGFloat = 624
     static let topPadding: CGFloat = 22
     static let horizontalPadding: CGFloat = 18
     static let menuHighlightMargin: CGFloat = 5
@@ -174,6 +189,219 @@ private struct FooterActionButton<Trailing: View>: View {
 
     private var trailingColor: Color {
         isHovering ? QuotaPopoverColors.menuSelectionText : QuotaPopoverColors.scaleText
+    }
+}
+
+private struct FooterSplitActionRow: View {
+    let currentVersion: String
+    let updateState: AppUpdateState
+    let isUpdateActionEnabled: Bool
+    let onQuit: () -> Void
+    let onCheckForUpdates: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            FooterCompactActionButton(title: I18n.current.quit, action: onQuit)
+
+            Spacer(minLength: 8)
+
+            AppUpdateFooterButton(
+                currentVersion: currentVersion,
+                state: updateState,
+                isEnabled: isUpdateActionEnabled,
+                action: onCheckForUpdates
+            )
+        }
+        .padding(.horizontal, QuotaPopoverLayout.menuItemHorizontalPadding - 7)
+    }
+}
+
+private struct FooterCompactActionButton: View {
+    let title: String
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 5)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(isHovering ? QuotaPopoverColors.menuSelectionText : QuotaPopoverColors.primaryText)
+        .background {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(isHovering ? QuotaPopoverColors.menuSelectionBackground : Color.clear)
+        }
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            isHovering = hovering
+        }
+        .animation(.easeOut(duration: 0.08), value: isHovering)
+    }
+}
+
+private struct AppUpdateFooterButton: View {
+    let currentVersion: String
+    let state: AppUpdateState
+    let isEnabled: Bool
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                statusContent
+
+                if isHovering, hoverActionIsVisible {
+                    HStack(spacing: 3) {
+                        Image(systemName: hoverActionSystemImage)
+                            .font(.system(size: 9, weight: .semibold))
+
+                        Text(hoverActionTitle)
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background {
+                        Capsule(style: .continuous)
+                            .strokeBorder(Color.primary.opacity(0.22), lineWidth: 0.75)
+                    }
+                    .transition(.opacity.combined(with: .move(edge: .trailing)))
+                }
+            }
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 5)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .foregroundStyle(foregroundColor)
+        .background {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(isHovering && isEnabled ? QuotaPopoverColors.menuSelectionBackground : Color.clear)
+        }
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            isHovering = hovering && isEnabled
+        }
+        .help(I18n.current.checkForUpdates)
+        .accessibilityLabel(accessibilityLabel)
+        .animation(.easeOut(duration: 0.14), value: isHovering)
+        .animation(.easeOut(duration: 0.14), value: state)
+    }
+
+    @ViewBuilder
+    private var statusContent: some View {
+        switch state {
+        case .unavailable, .idle:
+            versionText(currentVersion)
+        case .checking:
+            ProgressView()
+                .controlSize(.small)
+            Text(I18n.current.checkingForUpdates)
+        case .upToDate:
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 10, weight: .semibold))
+            Text(I18n.current.updateCheckUpToDate)
+            versionText(currentVersion)
+        case let .available(item):
+            versionText(formattedVersion(item.displayVersion))
+            Text(I18n.current.updateAvailable)
+        case let .downloading(item):
+            ProgressView()
+                .controlSize(.small)
+            versionText(formattedVersion(item.displayVersion))
+            Text(I18n.current.downloadingUpdate)
+        case let .ready(item):
+            Image(systemName: "arrow.down.circle.fill")
+                .font(.system(size: 10, weight: .semibold))
+            versionText(formattedVersion(item.displayVersion))
+            Text(I18n.current.updateDownloaded)
+        case .failed:
+            Image(systemName: "exclamationmark.circle.fill")
+                .font(.system(size: 10, weight: .semibold))
+            Text(I18n.current.updateCheckFailed)
+        }
+    }
+
+    private var hoverActionIsVisible: Bool {
+        switch state {
+        case .checking, .upToDate, .downloading, .unavailable:
+            return false
+        case .idle, .available, .ready, .failed:
+            return true
+        }
+    }
+
+    private var hoverActionTitle: String {
+        if case .ready = state {
+            return I18n.current.installUpdate
+        }
+
+        return I18n.current.checkForUpdates
+    }
+
+    private var hoverActionSystemImage: String {
+        if case .ready = state {
+            return "arrow.down.circle"
+        }
+
+        return "arrow.triangle.2.circlepath"
+    }
+
+    private var foregroundColor: Color {
+        if isHovering && isEnabled {
+            return QuotaPopoverColors.menuSelectionText
+        }
+
+        switch state {
+        case .available, .ready:
+            return .accentColor
+        case .failed:
+            return Color(nsColor: .systemRed)
+        case .unavailable, .idle, .checking, .upToDate, .downloading:
+            return QuotaPopoverColors.scaleText
+        }
+    }
+
+    private var accessibilityLabel: String {
+        switch state {
+        case .checking:
+            return I18n.current.checkingForUpdates
+        case .upToDate:
+            return "\(I18n.current.updateCheckUpToDate), \(currentVersion)"
+        case let .available(item):
+            return "\(formattedVersion(item.displayVersion)), \(I18n.current.updateAvailable)"
+        case let .downloading(item):
+            return "\(formattedVersion(item.displayVersion)), \(I18n.current.downloadingUpdate)"
+        case let .ready(item):
+            return "\(formattedVersion(item.displayVersion)), \(I18n.current.updateDownloaded)"
+        case .failed:
+            return I18n.current.updateCheckFailed
+        case .unavailable, .idle:
+            return "\(currentVersion), \(I18n.current.checkForUpdates)"
+        }
+    }
+
+    private func versionText(_ version: String) -> some View {
+        Text(version)
+            .font(.system(size: 11, weight: .medium))
+            .monospacedDigit()
+    }
+
+    private func formattedVersion(_ version: String) -> String {
+        let trimmedVersion = version.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedVersion.lowercased().hasPrefix("v") {
+            return trimmedVersion
+        }
+
+        return trimmedVersion.isEmpty ? "" : "v\(trimmedVersion)"
     }
 }
 
@@ -901,6 +1129,10 @@ struct QuotaRow: View {
             return I18n.current.resetTimeUnavailable
         }
 
+        if window.windowDurationMins == 300 {
+            return I18n.current.refreshAt(Self.timeFormatter().string(from: resetsAt))
+        }
+
         if window.windowDurationMins == 10080 {
             return I18n.current.refreshAt(Self.dateFormatter().string(from: resetsAt))
         }
@@ -923,6 +1155,13 @@ struct QuotaRow: View {
 
     private static func twoDigit(_ value: Int) -> String {
         String(format: "%02d", value)
+    }
+
+    private static func timeFormatter() -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: I18n.current.dateLocaleIdentifier)
+        formatter.dateFormat = "HH:mm:ss"
+        return formatter
     }
 
     private static func dateFormatter() -> DateFormatter {
